@@ -1,0 +1,16 @@
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.py[cod]
+*.egg-info/
+.venv/
+workspaces/
+renders/
+*.mp4
+*.mov
+*.npy
+*.npz
+*.pth
+*.pt
+*.safetensors
+.DS_Store
