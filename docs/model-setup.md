@@ -6,7 +6,7 @@ This is an optional adapter guide. Running the example with provided alpha/depth
 
 Upstream: https://github.com/ByteDance-Seed/Depth-Anything-3
 
-Follow its current installation instructions in a **separate virtual environment**. It provides:
+Follow its current installation instructions in a **separate GPU-capable environment**, and install Film Lab into that same environment with `pip install -e /path/to/film-lab`. The adapter runs in the Python interpreter that invokes `film-lab`. It provides:
 
     from depth_anything_3.api import DepthAnything3
     model = DepthAnything3.from_pretrained("depth-anything/DA3-BASE")
@@ -24,7 +24,7 @@ Model choice must be reviewed individually: upstream DA3-BASE / DA3-SMALL are Ap
 Upstream: https://github.com/pq-yang/MatAnyone2
 License: https://github.com/pq-yang/MatAnyone2/blob/main/LICENSE.txt
 
-The official repo exposes inference_matanyone2.py with flags -i (video or frame folder), -m (first-frame binary person mask), -o (output), and --save_image. It writes one PNG alpha frame under <output>/<input-folder>/pha/ for each input frame. Film Lab uses that published CLI and reindexes images to 000000.png onward.
+Install Film Lab in the MatAnyone 2 inference environment as well, so the CLI can invoke the upstream script with the same interpreter. The official repo exposes inference_matanyone2.py with flags -i (video or frame folder), -m (first-frame binary person mask), -o (output), and --save_image. It writes one PNG alpha frame under <output>/<input-folder>/pha/ for each input frame. Film Lab uses that published CLI and reindexes images to 000000.png onward.
 
     git clone https://github.com/pq-yang/MatAnyone2 /path/to/MatAnyone2
     # install upstream as directed in its README and download/check its weights
