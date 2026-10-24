@@ -18,6 +18,17 @@ jobs:
         run: python -m compileall -q src
       - name: Unit and synthetic integration tests
         run: pytest -q
+      - name: Verify studio package and web preview
+        run: python -c "from importlib.resources import files; assert files('film_lab.spatial').joinpath('static/studio.html').is_file()"
+      - name: Check browser editor JavaScript syntax
+        run: |
+          python - <<'PY'
+          from importlib.resources import files
+          import subprocess
+          html = files("film_lab.spatial").joinpath("static/studio.html").read_text()
+          script = html.split("<script>", 1)[1].split("</script>", 1)[0]
+          subprocess.run(["node", "--check", "-"], input=script, text=True, check=True)
+          PY
       - name: Smoke-test CLI and produce synthetic frames
         run: film-lab demo --workdir workspaces/ci --frames 6 --no-video
       - name: Upload diagnostic render

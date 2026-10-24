@@ -8,6 +8,8 @@ from .demo import generate
 from .io import extract, frame_files
 from .models import depth_da3, import_sequence, matanyone2
 from .pipeline import render
+from .qa import audit
+from .studio import serve
 from .project import write_project
 
 
@@ -55,6 +57,13 @@ def parser() -> argparse.ArgumentParser:
     rend.add_argument("--project", type=Path, required=True)
     rend.add_argument("--debug", action="store_true")
     rend.add_argument("--no-video", action="store_true")
+    studio = sub.add_parser("studio", help="Local visual typography editor, no cloud upload")
+    studio.add_argument("--project", type=Path, required=True)
+    studio.add_argument("--port", type=int, default=8765)
+
+    qc = sub.add_parser("qa", help="Motion-compensated matte and depth continuity audit")
+    qc.add_argument("--project", type=Path, required=True)
+    qc.add_argument("--every", type=int, default=1)
     return p
 
 
@@ -115,6 +124,11 @@ def main() -> None:
         count = matanyone2(args.workdir.resolve() / "frames", args.first_mask,
                            args.workdir / "alpha", args.upstream, max_size=args.max_size)
         print(f"Generated alpha for {count} frames")
+    elif args.command == "studio":
+        serve(args.project, port=args.port)
+    elif args.command == "qa":
+        report = audit(args.project, every=args.every)
+        print(json.dumps({k: v for k, v in report.items() if k != "observations"}, indent=2))
     elif args.command == "render":
         print(json.dumps(render(args.project, save_debug=args.debug,
                                 video=not args.no_video), indent=2))
