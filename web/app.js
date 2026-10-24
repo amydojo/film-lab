@@ -154,14 +154,14 @@
     };
     c.save();
     if(kind==="subject"){c.shadowColor="#a7644d";c.shadowBlur=44;}
-    if(limit>=.80){
+    if(limit>=.80 && (kind!=="cover" || state.occlusion==="person" || state.depth<.80)){
       c.fillStyle=getFill("torso");torsoShape(c,t);c.fill();
       c.fillStyle=getFill("head");headShape(c,t);c.fill();
       // Neck joins head and shoulders, drawn beneath moving arm.
       const sx=Math.sin(t*1.4)*4;
       c.fillRect(220+sx,415,95,116);
     }
-    if(limit>=.95){
+    if(limit>=.95 && (kind!=="cover" || state.occlusion==="person" || state.depth<.95)){
       c.strokeStyle=kind==="subject"?"#221715":getFill("arm");
       c.lineWidth=48;c.lineCap="round";c.lineJoin="round";
       const hand=armShape(c,t);c.stroke();
@@ -190,8 +190,7 @@
     renderFigure(depthCtx,t,"depth");
     // For actual type visibility, matte regions are removed only if visually in front.
     resetCanvas(ocCtx);
-    if(state.occlusion!=="none")renderFigure(ocCtx,t,"cover",
-      state.occlusion==="person"?1:state.depth<.80?1:state.depth<.95?.95:0);
+    if(state.occlusion!=="none")renderFigure(ocCtx,t,"cover",1);
   }
   function matteData(img,alphaMode){
     const c=makeCanvas(),cc=c.getContext("2d",{willReadFrequently:true});
@@ -320,18 +319,17 @@
     updateKeyLabel();
   }
   function animation(now){
-    if(playing){
+    if(playing && (lastTick===0 || now-lastTick>=1000/FPS)){
+      const elapsed=lastTick?now-lastTick:1000/FPS;
+      lastTick=now;
       if(sourceType==="video"&&media&&media.readyState>=2){
-        const n=Math.round(media.currentTime*FPS);
-        state.frame=clamp(n,0,maxFrame);
-        if(media.ended){pause();}
-      }else if(now-lastTick>1000/FPS){
-        if(lastTick===0)lastTick=now;
-        state.frame=(state.frame+Math.max(1,Math.min(3,Math.round((now-lastTick)*FPS/1000))))%(maxFrame+1);
-        lastTick=now;
+        state.frame=clamp(Math.round(media.currentTime*FPS),0,maxFrame);
+        if(media.ended||media.currentTime>=maxFrame/FPS)pause();
+      }else{
+        state.frame=(state.frame+Math.max(1,Math.min(3,Math.round(elapsed*FPS/1000))))%(maxFrame+1);
       }
+      draw();
     }
-    draw();
     frameRequest=requestAnimationFrame(animation);
   }
   function pause(){
@@ -509,6 +507,6 @@
     if(e.code==="Space"){e.preventDefault();if(playing)pause();else start();}
   });
   document.addEventListener("visibilitychange",()=>{if(document.hidden)pause();});
-  syncInputs();updateSourceUI();document.fonts?.ready.then(()=>draw());
+  syncInputs();updateSourceUI();draw();document.fonts?.ready.then(()=>draw());
   frameRequest=requestAnimationFrame(animation);
 })();
