@@ -9,7 +9,7 @@ Run \`film-lab studio --project workspaces/shot01/project.json\`, then open http
 - **Right:** color, size, font path, opacity, depth plane, occlusion mode, tracking, keyframe parameters.
 - **Top:** optimistic-concurrency save and full offline render.
 
-The preview runs the actual Python glyph rasterizer and occlusion formula, including antialiased typography; *it doesn't simulate temporal blend or camera tracking*. The rendered sequence remains the source of truth for final motion.
+The preview runs the actual Python glyph rasterizer and occlusion formula, including antialiased typography; *it doesn't simulate temporal blend or camera tracking*. When a required map has not been generated yet, a clearly labeled **draft preview** shows typography without that missing occlusion; the production render still rejects incomplete maps. The rendered sequence remains the source of truth for final motion.
 
 Dragging an anchor writes a position keyframe on the active frame. A new keyframe interpolates smoothly between neighboring keys; add a keyframe without moving to lock position. The renderer still applies background-motion tracking when requested.
 

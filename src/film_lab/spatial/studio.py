@@ -52,8 +52,13 @@ def preview(project_file: Path, payload: dict, frame: int, view: str = "composit
         for layer in project.layers:
             pose = pose_at(layer.keyframes, frame)
             glyph = rasterize(layer, pose, h, w)
-            cover = np.zeros((h, w), np.float32) if layer.occlusion == "none" else occluder(
-                alpha, depth, layer.depth, layer.occlusion, project.depth_feather)
+            # Preview only: allow editorial positioning before maps are available.
+            # The full renderer still fails closed until required maps exist.
+            missing = alpha is None or (layer.occlusion == "depth" and depth is None)
+            cover = (np.zeros((h, w), np.float32)
+                     if layer.occlusion == "none" or missing else occluder(
+                         alpha, depth, layer.depth, layer.occlusion,
+                         project.depth_feather))
             mask = np.maximum(mask, cover * glyph[..., 3])
             output = blend(output, glyph, cover)
         if view == "occlusion":

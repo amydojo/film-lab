@@ -92,3 +92,12 @@ def test_local_editor_state_preview_and_revision_conflict(tmp_path):
         httpd.shutdown()
         httpd.server_close()
         thread.join(timeout=2)
+
+
+def test_unmasked_editor_draft_does_not_bypass_strict_render(tmp_path):
+    path = generate(tmp_path / "shot", frames=2)
+    (path.parent / "alpha/000000.png").unlink()
+    doc = json.loads(path.read_text())
+    assert preview(path, doc, 0).startswith(b"\\x89PNG")
+    with pytest.raises(ValueError, match="Missing alpha"):
+        render(path, video=False)

@@ -140,7 +140,7 @@ aside{order:2;border-right:0;border-top:1px solid var(--line)}aside.right{order:
 "use strict";
 const $=id=>document.getElementById(id);
 let project=null, revision="", frames=0, fps=24, current=0, selected=0, view="composite";
-let dirty=false, sequence=0, controller=null, previewUrl=null, messageTimer=null, dragging=false;
+let dirty=false, sequence=0, controller=null, previewUrl=null, messageTimer=null, dragging=false, assetReady=false;
 const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
 const active=()=>project.layers[selected];
 const frameStr=n=>String(n).padStart(4,"0");
@@ -224,7 +224,7 @@ async function queuePreview(){
     if(id!==sequence)return;
     const url=URL.createObjectURL(blob), old=previewUrl;previewUrl=url;
     $("preview").src=url;if(old)URL.revokeObjectURL(old);
-    $("previewNote").textContent=view==="composite"?"Exact single-frame composite · full render adds tracking + temporal stabilization":"Inspect / "+view+" · original source never altered";
+    $("previewNote").textContent=view==="composite"?(assetReady?"Exact single-frame composite · full render adds tracking + temporal stabilization":"DRAFT · Missing maps display unoccluded typography. Final render requires alpha + depth."):"Inspect / "+view+" · original source never altered";
   }catch(err){if(err.name==="AbortError"||id!==sequence)return;
     $("previewNote").textContent="Preview unavailable: "+err.message;
   }
@@ -233,7 +233,7 @@ async function boot(){
   try{
     const res=await fetch("/api/state");if(!res.ok)throw Error((await res.json()).error);
     const data=await res.json();project=data.project;revision=data.revision;frames=data.frames;fps=project.fps;
-    const ratio=100*data.width/data.height;
+    assetReady=data.alpha_frames===frames&&data.depth_frames===frames;
     $("stage").style.aspectRatio=data.width+" / "+data.height;
     $("stage").style.height="auto";
     $("stage").style.width=(data.width>data.height?"min(100%,900px)":"min(100%,420px)");
