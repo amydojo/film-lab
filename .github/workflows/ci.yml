@@ -20,6 +20,10 @@ jobs:
         run: pytest -q
       - name: Smoke-test CLI and produce synthetic frames
         run: film-lab demo --workdir workspaces/ci --frames 6 --no-video
+      - name: Validate static mobile studio
+        run: |
+          cd web
+          npm run test
       - name: Upload diagnostic render
         if: always()
         uses: actions/upload-artifact@v4
