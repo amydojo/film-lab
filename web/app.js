@@ -72,8 +72,8 @@
     const current=sourceType==="video"?media.currentTime:0;
     if(sourceType==="video"&&media.readyState<2)return;
     if(current===segLastMediaTime)return;
-    if(Math.abs(current-segLastMediaTime)<.12 && segLastMediaTime>=0)return;
-    if(performance.now()-segLastAt<125 && segLastMediaTime>=0)return;
+    if(Math.abs(current-segLastMediaTime)<.07 && segLastMediaTime>=0)return;
+    if(performance.now()-segLastAt<80 && segLastMediaTime>=0)return;
     segLastAt=performance.now();
     try{
       const data=maskEngine.segment(base,performance.now());
@@ -280,7 +280,7 @@
       const idx=i*4,m=a[i]/255;
       // Without actual depth maps use an explicitly labeled, controllable 2.5D
       // front/behind blend. Do not pretend to estimate geometric distance.
-      const z=state.occlusion==="person"?1:!d?smooth(.08,.92,1-state.depth):
+      const z=state.occlusion==="person"?1:!d?smooth(.28,.52,1-state.depth):
         smooth(state.depth-.05,state.depth+.05,d[i]/255);
       pixels.data[idx]=255;pixels.data[idx+1]=255;pixels.data[idx+2]=255;
       pixels.data[idx+3]=Math.round(255*m*z);
