@@ -1,0 +1,27 @@
+{
+  "fps": 24,
+  "frames_dir": "frames",
+  "alpha_dir": "alpha",
+  "depth_dir": "depth",
+  "output_dir": "renders",
+  "alpha_temporal": 0.12,
+  "depth_temporal": 0.32,
+  "scene_cut_threshold": 0.24,
+  "depth_feather": 0.055,
+  "layers": [
+    {
+      "text": "FORM\nFROM EVERY ANGLE",
+      "font": null,
+      "font_size": 100,
+      "color": "#E3BBA0",
+      "opacity": 1,
+      "depth": 0.43,
+      "occlusion": "depth",
+      "tracking": "background",
+      "keyframes": [
+        {"frame": 0, "x": 0.49, "y": 0.48, "scale": 0.94, "rotation": 0},
+        {"frame": 72, "x": 0.53, "y": 0.47, "scale": 1.06, "rotation": 0}
+      ]
+    }
+  ]
+}

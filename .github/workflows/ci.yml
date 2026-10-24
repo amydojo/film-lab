@@ -1,0 +1,29 @@
+name: film-lab-ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  spatial-core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install core + test dependencies (no model weights)
+        run: python -m pip install -e ".[test]"
+      - name: Compile Python modules
+        run: python -m compileall -q src
+      - name: Unit and synthetic integration tests
+        run: pytest -q
+      - name: Smoke-test CLI and produce synthetic frames
+        run: film-lab demo --workdir workspaces/ci --frames 6 --no-video
+      - name: Upload diagnostic render
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spatial-type-synthetic-preview
+          path: workspaces/ci/renders/
+          if-no-files-found: ignore
