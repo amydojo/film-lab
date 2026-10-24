@@ -35,7 +35,7 @@ and actual model inference. Editor font families are approximate Web fonts; expo
 ## Privacy
 
 Use of the file picker does not transmit footage to Film Lab servers. No API endpoints
-accept uploads. The MediaPipe JS/WASM runtime and model are downloaded from external
+accept uploads. The pinned MediaPipe Tasks Vision 0.10.21 JS/WASM runtime and model are downloaded from external
 CDNs/Google model hosting when needed; MediaPipe may report usage/performance metrics,
 but video and image pixels are processed locally. Imported files are used via local object URLs and drawn in Canvas; downloads
 are initiated locally. Remote Google Fonts may be requested, but contain no image/video bytes.

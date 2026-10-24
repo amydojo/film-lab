@@ -3,7 +3,7 @@
  * Uses MediaPipe Tasks Vision selfie segmenter. No video frame leaves the browser.
  * The model/WASM runtime is downloaded from Google/jsDelivr on first use.
  */
-const VERSION="0.10.22";
+const VERSION="0.10.21";
 const ROOT="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@"+VERSION;
 const MODEL="https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/1/selfie_segmenter.tflite";
 

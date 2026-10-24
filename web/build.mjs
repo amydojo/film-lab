@@ -1,6 +1,6 @@
 import {mkdir,copyFile,readFile,readdir,stat} from "node:fs/promises";
 import {join} from "node:path";
-const required=["index.html","styles.css","app.js"];
+const required=["index.html","styles.css","app.js","subject-segmentation.js"];
 const html=await readFile("index.html","utf8");
 for(const target of ['href="./styles.css"','src="./app.js"','id="film"']) {
   if(!html.includes(target))throw new Error("Missing studio binding: "+target);
