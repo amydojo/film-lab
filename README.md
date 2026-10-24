@@ -18,6 +18,31 @@ Requirements: Python 3.10+, pip; optional FFmpeg for MP4 export.
 
 The demo generates its own test clip, depth maps, alpha mattes and editable project. It is **synthetic**, not a DA3/MatAnyone2 benchmark. Inspect the diagnostic occluder and typography frames in workspaces/demo/renders/debug/.
 
+## Studio 02 — direct shot editing
+
+After preparing your footage, alpha and depth maps, run:
+
+    film-lab studio --project workspaces/shot01/project.json
+
+Open http://127.0.0.1:8765. The studio runs on localhost only and doesn't upload footage.
+Scrub any frame, inspect source/matte/depth/occlusion/composite, drag the selected
+typography anchor to place a keyframe, adjust editorial depth, font, size, color,
+position, animation timing, and layer order. Save the actual project JSON or click
+**Render** for the existing offline pipeline.
+
+The live preview uses the *same Python glyph rasterizer and compositor* as a full
+render for that frame. It does not pretend to preview temporal smoothing or background
+feature tracking: export the full render for exact motion validation.
+
+Automated temporal continuity check:
+
+    film-lab qa --project workspaces/shot01/project.json --every 2
+
+This writes `renders/qa_report.json` and `renders/qa_contact_sheet.jpg`,
+flagging motion-compensated discontinuities and missing maps. Those are heuristic
+signals, **not** a substitute for frame-by-frame manual QC. To validate live footage,
+look for real hand/finger crossings and depth edge shimmer at 100% resolution.
+
 ## Real footage workflow
 
     film-lab extract input.mov --workdir workspaces/shot01

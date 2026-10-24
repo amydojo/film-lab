@@ -178,7 +178,7 @@ function loadControls(){
   $("keyStatus").textContent=layer.keyframes.some(k=>k.frame===current)?"● KEYFRAME":"◇ INTERPOLATED";
   $("atFrame").textContent=frameStr(current);
   for(const id of ["text","font","size","color","depth","opacity","occlusion","tracking"]){
-    field(id,layer[id]??"");
+    field(id,id==="size"?layer.font_size:(layer[id]??""));
   }
   for(const id of ["x","y","scale","rotation"]) field(id,Number(pos[id]).toFixed(id==="rotation"?1:3));
   $("depthValue").textContent=Number(layer.depth).toFixed(2);
@@ -249,7 +249,7 @@ for(const id of ["text","font","size","color","depth","opacity","occlusion","tra
     if(id==="size")value=clamp(parseInt(value,10)||1,1,1000);
     if(id==="depth"||id==="opacity")value=clamp(Number(value),0,1);
     if(id==="font")value=value||null;
-    k[id]=value;changed();
+    k[id==="size"?"font_size":id]=value;changed();
   });
 }
 for(const id of ["x","y","scale","rotation"]){
