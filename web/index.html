@@ -93,6 +93,10 @@ HAS MEMORY</textarea>
         <div class="parameter-label"><label for="occlusion">SPATIAL BEHAVIOR</label></div>
         <select id="occlusion"><option value="depth">DEPTH-AWARE</option><option value="person">BEHIND SUBJECT</option><option value="none">FOREGROUND</option></select>
       </div>
+      <div class="auto-mask-panel">
+        <button type="button" id="autoMask" class="auto-mask-button" aria-pressed="false">AUTO MASK: OFF</button>
+        <output id="maskStatus" role="status" aria-live="polite">UPLOAD VIDEO TO ENABLE</output>
+      </div>
       <div class="import-row">
         <label class="map-upload" for="matteFile">+ IMPORT ALPHA MATTE</label>
         <label class="map-upload" for="depthFile">+ IMPORT DEPTH MAP</label>
@@ -101,18 +105,19 @@ HAS MEMORY</textarea>
       </div>
       <div class="note" id="sourceNotice" aria-live="polite">
         <span class="note-symbol">↗</span>
-        <p>Try the moving-arm demo first. On your own footage, supply aligned alpha/depth maps to see real subject occlusion. Your files stay on this device.</p>
+        <p>Try the moving-arm demo first. On your own footage, supply aligned alpha/depth maps to see real subject occlusion. Your media stays in this browser. Person detection downloads a MediaPipe model (and may report usage metrics).</p>
       </div>
       <div class="inspector-actions">
         <button type="button" id="addKeyframe" class="secondary-btn">◇ SET KEYFRAME</button>
         <button type="button" id="reset" class="secondary-btn">↺ RESET</button>
         <button type="button" id="exportPng" class="solid-btn">↓ EXPORT FRAME</button>
+        <button type="button" id="exportVideo" class="solid-btn clip-btn">↓ EXPORT CLIP</button>
       </div>
     </section>
   </section>
   <footer class="footer">
     <div class="footer-title">MOVEMENT IS MATERIAL.</div>
-    <div>This browser study preserves your files locally. Single-frame alpha/depth maps are reference-only; temporal inference, stabilization, and video exports still run in the Python engine. <a href="https://github.com/amydojo/film-lab" target="_blank" rel="noopener noreferrer">SOURCE / GITHUB ↗</a></div>
+    <div>This browser study preserves your files locally. Auto person masks are inferred on-device, but real geometric depth and temporal stabilization require the Python engine. Browser clip exports are limited to short, silent real-time recordings and depend on Safari/Chrome support. <a href="https://github.com/amydojo/film-lab" target="_blank" rel="noopener noreferrer">SOURCE / GITHUB ↗</a></div>
   </footer>
 </main>
 <div id="toast" role="status" aria-live="polite"></div>

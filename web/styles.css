@@ -29,3 +29,11 @@ input[type=range]{accent-color:var(--warm);height:20px;cursor:pointer}.timeline-
 @media(max-width:850px){.layout{padding:0 18px}.workspace{grid-template-columns:1fr}.preview-area{padding:16px 18px 20px}.inspector{padding:21px}.intro{padding-top:42px}.frame-wrap{width:min(100%,380px)}.footer{flex-direction:column}}
 @media(max-width:470px){.masthead{padding:14px 17px}.wordmark{font-size:21px}.edition{font-size:8px;letter-spacing:.02em}.edition .thin{display:none}.top-download{padding:9px;font-size:9px}.top-download span{display:none}.layout{padding:0 12px}.intro{padding:35px 3px 23px}.intro p{font-size:13px;margin-top:16px}.intro-rule{font-size:8px}.tiny-heading{font-size:9px}.panel-heading{margin-bottom:13px}.mode-tabs button{font-size:8px;padding:7px 6px}.preview-area{padding:14px 12px 19px}.frame-wrap{width:min(100%,326px)}.inspector{padding:19px 17px 24px}.parameter{padding-top:16px}.source-bar{padding-top:8px}.footer{padding:30px 8px 55px}.footer-title{font-size:21px}.timeline-meta{margin-right:70px}.drag-label{opacity:.55}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+/* V0.4 — source-aware automatic masking and mobile recording actions. */
+.auto-mask-panel{display:flex;align-items:center;gap:12px;justify-content:space-between;margin-top:24px;padding:12px;background:#2b211c;border:1px solid #5f4839;min-height:58px}
+.auto-mask-button{flex-shrink:0;border:1px solid #b47c5b;background:#36251d;color:#f1ceae;padding:11px 13px;font:10px var(--mono);letter-spacing:.02em}.auto-mask-button[aria-pressed="true"]{background:#bd8562;color:#1c120d}.auto-mask-button:disabled{opacity:.5;cursor:wait}
+#maskStatus{font:9px/1.5 var(--mono);color:#b7a293;letter-spacing:.02em;text-align:right;overflow-wrap:anywhere}
+.inspector-actions .clip-btn{background:transparent;color:var(--accent);border-color:#b57958!important}
+.inspector-actions .clip-btn:hover{background:#3b291f}
+@media(max-width:470px){.auto-mask-panel{gap:6px}.auto-mask-button{font-size:9px;padding:10px}#maskStatus{font-size:8px}}

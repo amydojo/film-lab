@@ -27,6 +27,68 @@
       sourceType="demo",frameRequest=0,lastTick=0,toastTimer=null,
       maskAsset=null,depthAsset=null,overlayCacheKey="",pointerDown=false;
   let mediaObjectUrl=null;
+  let maskEngine=null,autoEnabled=false,autoLoading=false,segGeneration=0,
+      segLastMediaTime=-100,segLastAt=0,segSerial=0,segmentStatus="idle",recorder=null,
+      recordingStream=null,recordStopTime=0;
+  const segmentationUnavailable=()=>segmentStatus==="failed";
+  function setMaskStatus(message) {
+    const status=$("maskStatus");
+    if(status)status.textContent=message;
+  }
+  function syncAutoButton(){
+    const button=$("autoMask");
+    if(!button)return;
+    button.disabled=autoLoading||sourceType==="demo";
+    button.textContent=autoLoading?"LOADING MODEL…":autoEnabled?"AUTO MASK: ON":"AUTO MASK: OFF";
+    button.setAttribute("aria-pressed",String(autoEnabled));
+  }
+  async function enableAutoMask(){
+    if(sourceType==="demo")return;
+    const generation=segGeneration;
+    autoEnabled=true;autoLoading=true;setMaskStatus("LOADING PERSON MODEL…");
+    syncAutoButton();
+    try{
+      if(!maskEngine) {
+        const {SubjectSegmenter}=await import("./subject-segmentation.js");
+        if(generation!==segGeneration)return;
+        maskEngine=new SubjectSegmenter(W,H);
+      }
+      await maskEngine.load(message=>{if(generation===segGeneration)setMaskStatus(message.toUpperCase());});
+      if(generation!==segGeneration)return;
+      segmentStatus="ready";segLastMediaTime=-100;segLastAt=0;
+      setMaskStatus("ON-DEVICE PERSON TRACKING READY");
+      updateSourceUI();draw();
+    }catch(e){
+      if(generation!==segGeneration)return;
+      autoEnabled=false;segmentStatus="failed";
+      setMaskStatus("AUTO MASK UNAVAILABLE — IMPORT A MATTE");
+      toast("Model could not load: "+e.message);
+    }finally{
+      if(generation===segGeneration){autoLoading=false;syncAutoButton();}
+    }
+  }
+  function autoSegmentFrame(){
+    if(!autoEnabled||segmentStatus!=="ready"||!maskEngine||sourceType==="demo"||!media)return;
+    const current=sourceType==="video"?media.currentTime:0;
+    if(sourceType==="video"&&media.readyState<2)return;
+    if(current===segLastMediaTime)return;
+    if(Math.abs(current-segLastMediaTime)<.12 && segLastMediaTime>=0)return;
+    if(performance.now()-segLastAt<125 && segLastMediaTime>=0)return;
+    segLastAt=performance.now();
+    try{
+      const data=maskEngine.segment(base,performance.now());
+      if(!data)return;
+      // The mask is inferred from the SAME cropped 9:16 RGB as the final preview.
+      maskAsset={data,id:++segSerial,name:"On-device person matte"};
+      segLastMediaTime=current;overlayCacheKey="";
+      setMaskStatus("PERSON MASK ACTIVE · FRAME "+String(state.frame).padStart(3,"0"));
+    }catch(e){
+      autoEnabled=false;segmentStatus="failed";
+      setMaskStatus("SEGMENTATION FAILED — IMPORT MANUAL MATTE");
+      toast("Person tracking stopped: "+e.message);
+      syncAutoButton();
+    }
+  }
   const textTypeface=()=>state.fontChoice==="modern"
     ? "600 {size}px 'DM Sans',Arial,sans-serif"
     : state.fontChoice==="mono"?"500 {size}px 'DM Mono',monospace"
@@ -216,7 +278,10 @@
     const pixels=ocCtx.createImageData(W,H);
     for(let i=0;i<a.length;i++){
       const idx=i*4,m=a[i]/255;
-      const z=state.occlusion==="person"?1:!d?0:smooth(state.depth-.05,state.depth+.05,d[i]/255);
+      // Without actual depth maps use an explicitly labeled, controllable 2.5D
+      // front/behind blend. Do not pretend to estimate geometric distance.
+      const z=state.occlusion==="person"?1:!d?smooth(.08,.92,1-state.depth):
+        smooth(state.depth-.05,state.depth+.05,d[i]/255);
       pixels.data[idx]=255;pixels.data[idx+1]=255;pixels.data[idx+2]=255;
       pixels.data[idx+3]=Math.round(255*m*z);
     }
@@ -290,27 +355,28 @@
           }
         }catch(_){}
       }
+      autoSegmentFrame();
       mapCacheUpdate();
     }
     if(view==="matte"){
       if(sourceType==="demo")ctx.drawImage(matteView,0,0);
       else if(maskAsset){importedMaps();ctx.drawImage(matteView,0,0);}
       else{ctx.fillStyle="#12100e";ctx.fillRect(0,0,W,H);}
-      $("modeCaption").textContent=sourceType==="demo"||maskAsset?"ALPHA / VIEW":"NO ALPHA MAP LOADED";
+      $("modeCaption").textContent=sourceType==="demo"||maskAsset?"PERSON MATTE / LIVE":"NO PERSON MASK";
     }else if(view==="depth"){
       if(sourceType==="demo")ctx.drawImage(depthView,0,0);
       else if(depthAsset){importedMaps();ctx.drawImage(depthView,0,0);}
       else{ctx.fillStyle="#12100e";ctx.fillRect(0,0,W,H);}
-      $("modeCaption").textContent=sourceType==="demo"||depthAsset?"NEAR = WHITE":"NO DEPTH MAP LOADED";
+      $("modeCaption").textContent=sourceType==="demo"||depthAsset?"NEAR = WHITE":"NO DEPTH · 2.5D EDITORIAL CONTROL";
     }else{
       ctx.drawImage(base,0,0);
       typography();
       ctx.drawImage(glyph,0,0);
       filmTexture(ctx,t);
-      const ready=sourceType==="demo"||maskAsset&&
-        (state.occlusion==="person"||depthAsset||state.occlusion==="none");
+      const ready=sourceType==="demo"||!!maskAsset;
       $("modeCaption").textContent=state.occlusion==="none"?"FRONT / NO MASK":
-        ready?"SUBJECT OCCLUSION ACTIVE":"DRAFT / MAPS REQUIRED";
+        !ready?"NO MATTE · USE AUTO MASK":!depthAsset&&sourceType!=="demo"&&state.occlusion==="depth"?
+        "2.5D OCCLUSION · NO TRUE DEPTH":"PERSON OCCLUSION / LIVE";
     }
     $("frameCount").textContent=String(state.frame).padStart(3,"0");
     $("timecode").textContent="00:"+String(Math.floor(t)).padStart(2,"0")+
@@ -324,6 +390,7 @@
       lastTick=now;
       if(sourceType==="video"&&media&&media.readyState>=2){
         state.frame=clamp(Math.round(media.currentTime*FPS),0,maxFrame);
+        if(recorder?.state==="recording"&&media.currentTime>=recordStopTime)recorder.stop();
         if(media.ended||media.currentTime>=maxFrame/FPS)pause();
       }else{
         state.frame=(state.frame+Math.max(1,Math.min(3,Math.round(elapsed*FPS/1000))))%(maxFrame+1);
@@ -347,6 +414,7 @@
   function setFrame(n){
     state.frame=clamp(Math.round(n),0,maxFrame);
     if(sourceType==="video"&&media){
+      segLastMediaTime=-100;
       media.currentTime=clamp(state.frame/FPS,0,Math.max(0,(media.duration||0)-.005));
     }
     draw();
@@ -369,8 +437,8 @@
       sourceType==="video"?"LOCAL VIDEO / NOT UPLOADED":"LOCAL IMAGE / NOT UPLOADED";
     $("sourceNotice").querySelector("p").textContent=demo?
       "This figure is procedural, not a human film sample. Try the moving-arm test, then import real footage and matching matte/depth maps.":
-      !maskAsset?"Your source stays in this browser. Import a matching alpha matte to place text behind the person; missing maps show a draft foreground overlay.":
-      !depthAsset?"Matte loaded. 'Behind subject' works; import a matching depth map for depth-aware occlusion. Single static maps do not follow video motion.":
+      !maskAsset?"Your clip stays in this browser. Tap AUTO MASK to detect the person automatically; no mask means typography is a foreground overlay.":
+      !depthAsset?"Person matte ready. The depth slider is an editorial 2.5D front/behind blend, not real depth estimation. Import a matching depth map for measured spatial ordering.":
       "Matte and depth loaded for this frame. This is a static-map preview, not a temporally tracked VFX render.";
   }
   function fileImage(file){
@@ -395,8 +463,12 @@
   async function importSource(file){
     if(!file)return;
     pause();
+    if(recorder?.state==="recording")recorder.stop();
+    segGeneration++;autoEnabled=false;autoLoading=false;segmentStatus="idle";
+    segLastMediaTime=-100;segLastAt=0;
     if(mediaObjectUrl){URL.revokeObjectURL(mediaObjectUrl);mediaObjectUrl=null;}
     maskAsset=null;depthAsset=null;overlayCacheKey="";
+    syncAutoButton();setMaskStatus("STARTING SOURCE…");
     try{
       if(file.type.startsWith("image/")){
         media=await fileImage(file);sourceType="image";maxFrame=240;
@@ -409,14 +481,54 @@
           v.load();
         });
         if(!Number.isFinite(v.duration)||v.duration<=0)throw Error("The clip has no readable duration.");
-        v.onseeked=()=>draw();
+        v.onseeked=()=>{segLastMediaTime=-100;draw();};
+        v.onloadeddata=()=>draw();
         media=v;sourceType="video";maxFrame=Math.max(1,Math.floor(Math.min(v.duration,MAX_WEB_SECONDS)*FPS));
         if(v.duration>MAX_WEB_SECONDS)toast("Showing the first 60 seconds of this clip.");
       }else throw Error("Choose an image or video file.");
       media.dataset.fileName=file.name;
       state.frame=0;$("scrub").max=maxFrame;
-      updateSourceUI();draw();toast("Local source ready. Nothing uploaded.");
-    }catch(e){sourceType="demo";media=null;maxFrame=240;updateSourceUI();toast(e.message);}
+      updateSourceUI();draw();syncAutoButton();
+      toast("Video loaded. Preparing automatic person masking…");
+      enableAutoMask();
+    }catch(e){sourceType="demo";media=null;maxFrame=240;syncAutoButton();updateSourceUI();toast(e.message);}
+  }
+  function recordClip(){
+    if(recorder?.state==="recording"){recorder.stop();return;}
+    if(sourceType!=="video"||!media){toast("Import a video before exporting a clip.");return;}
+    if(typeof canvas.captureStream!=="function"||typeof MediaRecorder==="undefined"){
+      toast("Video recording is not available in this browser. Use Export Frame.");return;
+    }
+    const types=["video/mp4;codecs=avc1.42E01E","video/mp4","video/webm;codecs=vp9","video/webm"];
+    const mime=types.find(type=>MediaRecorder.isTypeSupported(type));
+    if(!mime){toast("No supported video encoder. Export frames instead.");return;}
+    // Capture the actual canvas composite. Browser codecs determine format and frame pacing.
+    try{
+      recordingStream=canvas.captureStream(FPS);
+      const chunks=[];
+      recorder=new MediaRecorder(recordingStream,{mimeType:mime,videoBitsPerSecond:3500000});
+      recorder.ondataavailable=e=>{if(e.data?.size)chunks.push(e.data);};
+      recorder.onerror=e=>{toast("Video recorder error: "+(e.error?.message||"unknown"));};
+      recorder.onstop=()=>{
+        recordingStream?.getTracks().forEach(t=>t.stop());recordingStream=null;
+        const recordMime=recorder.mimeType||mime,ext=recordMime.includes("mp4")?"mp4":"webm";
+        if(chunks.length&&chunks.some(c=>c.size)){
+          download("film-lab-composite."+ext,new Blob(chunks,{type:recordMime}));
+          toast("Clip exported without source audio. Review frame rate and quality.");
+        }else toast("Recorder produced no frames. Use Export Frame instead.");
+        $("exportVideo").textContent="↓ EXPORT CLIP";
+        $("exportVideo").disabled=false;
+        recorder=null;
+      };
+      recorder.start(800);
+      recordStopTime=Math.min(media.duration-.02,media.currentTime+12);
+      $("exportVideo").textContent="■ FINISH RECORD";
+      toast("Recording the next 12s max in real time. Audio is not included.");
+      start();
+    }catch(e){
+      recordingStream?.getTracks().forEach(t=>t.stop());recordingStream=null;recorder=null;
+      toast("Recording unavailable: "+e.message);
+    }
   }
   function download(name,blob){
     const a=document.createElement("a"),url=URL.createObjectURL(blob);
@@ -489,7 +601,9 @@
   });
   $("reset").addEventListener("click",()=>{
     pause();state=initial();sourceType="demo";media=null;
+    segGeneration++;autoEnabled=false;autoLoading=false;segmentStatus="idle";
     maskAsset=null;depthAsset=null;overlayCacheKey="";maxFrame=240;view="composite";
+    syncAutoButton();setMaskStatus("DEMO MASK ACTIVE");
     if(mediaObjectUrl){URL.revokeObjectURL(mediaObjectUrl);mediaObjectUrl=null;}
     document.querySelectorAll("button[data-view]").forEach(b=>{
       b.classList.toggle("active",b.dataset.view==="composite");
@@ -499,6 +613,11 @@
   });
   $("downloadProjectTop").addEventListener("click",exportProject);
   $("exportPng").addEventListener("click",exportFrame);
+  $("exportVideo").addEventListener("click",recordClip);
+  $("autoMask").addEventListener("click",()=>{
+    if(autoEnabled){autoEnabled=false;syncAutoButton();setMaskStatus("AUTO MASK PAUSED");}
+    else enableAutoMask();
+  });
   document.addEventListener("keydown",e=>{
     const tag=document.activeElement?.tagName;
     if(["INPUT","TEXTAREA","SELECT"].includes(tag))return;
@@ -507,6 +626,6 @@
     if(e.code==="Space"){e.preventDefault();if(playing)pause();else start();}
   });
   document.addEventListener("visibilitychange",()=>{if(document.hidden)pause();});
-  syncInputs();updateSourceUI();draw();document.fonts?.ready.then(()=>draw());
+  syncInputs();updateSourceUI();syncAutoButton();draw();document.fonts?.ready.then(()=>draw());
   frameRequest=requestAnimationFrame(animation);
 })();
