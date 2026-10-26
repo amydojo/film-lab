@@ -37,3 +37,21 @@ input[type=range]{accent-color:var(--warm);height:20px;cursor:pointer}.timeline-
 .inspector-actions .clip-btn{background:transparent;color:var(--accent);border-color:#b57958!important}
 .inspector-actions .clip-btn:hover{background:#3b291f}
 @media(max-width:470px){.auto-mask-panel{gap:6px}.auto-mask-button{font-size:9px;padding:10px}#maskStatus{font-size:8px}}
+
+/* Pocket Studio 0.5 — accessible timeline editing and reliable export alternatives */
+.key-ticks{position:relative;height:19px;margin:5px 65px 0 54px;border-top:1px solid #57483e;}
+.key-ticks button{position:absolute;top:-6px;width:12px;height:12px;padding:0;border-radius:0;transform:translateX(-50%) rotate(45deg);border:1px solid #cc977a;background:#31231c;z-index:3}
+.key-ticks button.current{background:#e8b994;box-shadow:0 0 9px #bb795f66}
+.timeline-meta b{color:#b28e78;font-weight:normal}
+.trim-actions{display:flex;align-items:center;gap:6px;margin-top:13px}
+.trim-actions button{flex:1;background:#211913;color:#c9b2a3;border:1px solid #554136;padding:9px 3px;font:9px var(--mono);cursor:pointer}
+.trim-actions button:hover{background:#34271f}
+.keyframe-editor{padding:16px 0 19px;border-bottom:1px solid #48382f}
+.keyframe-nav{display:flex;gap:5px}.keyframe-nav button{flex:1;background:#1d1713;border:1px solid #564135;padding:10px 3px;color:#cfad96;font:10px var(--mono)}
+.keyframe-nav button:disabled{opacity:.38;cursor:not-allowed}
+.keyframe-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:15px}
+.keyframe-grid label{font:10px var(--mono);letter-spacing:.1em;color:#948276;display:flex;flex-direction:column;gap:7px}
+.keyframe-grid input{width:100%;background:#15110f;border:1px solid #604b3c;color:#efddc9;padding:11px 8px;min-height:42px;font:13px var(--mono)}
+.export-progress{grid-column:1/-1;color:#bca291;font:10px/1.6 var(--mono);min-height:12px}
+.inspector-actions button:disabled{opacity:.45;cursor:wait}
+@media(max-width:470px){.key-ticks{margin-left:44px;margin-right:68px}.keyframe-grid{gap:9px}.keyframe-nav button{font-size:9px}}
