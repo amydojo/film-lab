@@ -496,7 +496,7 @@ import {zipStore} from "./frame-pack.js";
           v.load();
         });
         if(!Number.isFinite(v.duration)||v.duration<=0)throw Error("The clip has no readable duration.");
-        v.onseeked=()=>{segLastMediaTime=-100;draw();};
+        v.onseeked=()=>{segLastMediaTime=-100;if(!exportingFrames)draw();};
         v.onloadeddata=()=>draw();
         media=v;sourceType="video";maxFrame=Math.max(1,Math.floor(Math.min(v.duration,MAX_WEB_SECONDS)*FPS));
         if(v.duration>MAX_WEB_SECONDS)toast("Showing the first 60 seconds of this clip.");
@@ -586,7 +586,7 @@ import {zipStore} from "./frame-pack.js";
       fps:12,dimensions:[W,H],source_start_frame:first,source_end_frame:last,
       source_type:sourceType,source_name:media?.dataset?.fileName||"synthetic demo",
       original_frame_rate_assumed:FPS,
-      occlusion_method:depthAsset?"imported depth":"on-device matte / 2.5D editorial",
+      occlusion_method:!maskAsset?"unoccluded draft":depthAsset?"imported depth":"on-device matte / 2.5D editorial",
       authoring_project:projectPayload(),frames:[]
     };
     try{
@@ -689,6 +689,7 @@ import {zipStore} from "./frame-pack.js";
     ["keyX","x",0,1],["keyY","y",0,1],["keyScale","scale",.05,6],
     ["keyRotation","rotation",-360,360]
   ]){
+    $(id).addEventListener("focus",pause);
     $(id).addEventListener("change",()=>{
       const n=Number($(id).value);
       if(!Number.isFinite(n))return;

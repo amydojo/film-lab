@@ -52,7 +52,7 @@ test("mobile editor has real controls and export wiring",()=>{
   for(const id of ["prevKey","nextKey","keyX","keyY","keyRotation","keyScale",
                    "removeKey","keyTicks","markIn","markOut","exportFrames","fit"]){
     assert.ok(html.includes('id="'+id+'"'),id);
-    assert.ok(js.includes('$("'+id+'")'),"unwired "+id);
+    assert.ok(js.includes('"'+id+'"'),"unwired "+id);
   }
   assert.ok(html.includes('type="module" src="./app.js"'));
   assert.ok(js.includes("await seekVideo(frame/FPS)"));

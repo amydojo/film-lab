@@ -45,7 +45,7 @@ test("site wiring includes real-video segmentation and recorder controls",()=>{
   const js=readFileSync(new URL("../app.js",import.meta.url),"utf8");
   for(const id of ["autoMask","maskStatus","exportVideo","sourceFile","play","scrub"])
     assert.ok(html.includes('id="'+id+'"'),id);
-  for(const expected of ["enableAutoMask();","autoSegmentFrame();","new MediaRecorder(","subject-segmentation.js","maskAsset={data"])
+  for(const expected of ["enableAutoMask();","autoSegmentFrame(forceMask);","new MediaRecorder(","subject-segmentation.js","maskAsset={data"])
     assert.ok(js.includes(expected),expected);
   assert.ok(html.includes('width="540" height="960"'));
 });
