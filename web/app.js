@@ -3,6 +3,8 @@
  * Exports a Python-compatible JSON project, not rendered video.
  */
 "use strict";
+import {interpolate,putKeyframe,removeKeyframe,nearestKeyframe,clampTrim} from "./timeline.js";
+import {zipStore} from "./frame-pack.js";
 (() => {
   const W=540,H=960,FPS=24,MAX_WEB_SECONDS=60,VERSION="film-lab-pocket-v03";
   const $=id=>document.getElementById(id);
@@ -21,12 +23,19 @@
     {frame:240,x:.52,y:.417,scale:1,rotation:0}
   ];
   const initial=()=>({text:"SPACE\nHAS MEMORY",font_size:92,depth:.45,opacity:1,
-    color:"#efd9c4",occlusion:"depth",fontChoice:"editorial",frame:0,
+    color:"#efd9c4",occlusion:"depth",fontChoice:"editorial",fit:"cover",frame:0,
     keyframes:defaultKeys()});
   let state=initial(),view="composite",playing=true,maxFrame=240,media=null,
       sourceType="demo",frameRequest=0,lastTick=0,toastTimer=null,
       maskAsset=null,depthAsset=null,overlayCacheKey="",pointerDown=false;
   let mediaObjectUrl=null;
+  let trimIn=0,trimOut=240,exportingFrames=false,exportAbort=false;
+  function syncTrim(){
+    [trimIn,trimOut]=clampTrim(trimIn,trimOut,maxFrame);
+    $("inTime").textContent=(trimIn/FPS).toFixed(2)+"s";
+    $("outTime").textContent=(trimOut/FPS).toFixed(2)+"s";
+    $("totalFrames").textContent="/ "+String(maxFrame).padStart(3,"0")+" FRAMES";
+  }
   let maskEngine=null,autoEnabled=false,autoLoading=false,segGeneration=0,
       segLastMediaTime=-100,segLastAt=0,segSerial=0,segmentStatus="idle",recorder=null,
       recordingStream=null,recordStopTime=0;
@@ -67,13 +76,13 @@
       if(generation===segGeneration){autoLoading=false;syncAutoButton();}
     }
   }
-  function autoSegmentFrame(){
+  function autoSegmentFrame(force=false){
     if(!autoEnabled||segmentStatus!=="ready"||!maskEngine||sourceType==="demo"||!media)return;
     const current=sourceType==="video"?media.currentTime:0;
     if(sourceType==="video"&&media.readyState<2)return;
-    if(current===segLastMediaTime)return;
-    if(Math.abs(current-segLastMediaTime)<.07 && segLastMediaTime>=0)return;
-    if(performance.now()-segLastAt<80 && segLastMediaTime>=0)return;
+    if(!force&&current===segLastMediaTime)return;
+    if(!force&&Math.abs(current-segLastMediaTime)<.07 && segLastMediaTime>=0)return;
+    if(!force&&performance.now()-segLastAt<80 && segLastMediaTime>=0)return;
     segLastAt=performance.now();
     try{
       const data=maskEngine.segment(base,performance.now());
@@ -116,41 +125,46 @@
     const t=$("toast");t.textContent=message;t.style.display="block";
     clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.style.display="none",3400);
   }
-  function valueAt(frame){
-    const keys=state.keyframes;
-    if(frame<=keys[0].frame)return {...keys[0]};
-    if(frame>=keys[keys.length-1].frame)return {...keys[keys.length-1]};
-    for(let i=0;i<keys.length-1;i++){
-      const a=keys[i],b=keys[i+1];
-      if(frame>=a.frame&&frame<=b.frame){
-        const t=smooth(0,1,(frame-a.frame)/(b.frame-a.frame));
-        return {frame,
-          x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,
-          scale:a.scale+(b.scale-a.scale)*t,
-          rotation:a.rotation+(b.rotation-a.rotation)*t};
-      }
-    }
-    return {...keys[0]};
-  }
+  function valueAt(frame){return interpolate(state.keyframes,frame);}
+
   function setKey(x,y){
-    const frame=state.frame,prev=valueAt(frame);
-    const key={...prev,frame,x:clamp(x,0,1),y:clamp(y,0,1)};
-    const at=state.keyframes.findIndex(k=>k.frame===frame);
-    if(at>=0)state.keyframes[at]=key;else state.keyframes.push(key);
-    state.keyframes.sort((a,b)=>a.frame-b.frame);
-    persist();
-    updateKeyLabel();
+    state.keyframes=putKeyframe(state.keyframes,state.frame,{x:clamp(x,0,1),y:clamp(y,0,1)});
+    persist();updateKeyLabel();
   }
   function updateKeyLabel(){
     const n=state.keyframes.length;
     const exact=state.keyframes.some(k=>k.frame===state.frame);
     $("keyframeStatus").textContent=(exact?"● ":"◇ ")+n+" KEYFRAME"+(n===1?"":"S");
+    $("keyReadout").textContent="FRAME "+String(state.frame).padStart(3,"0")+(exact?" / SET":" / INTERPOLATED");
+    $("removeKey").disabled=!exact||n<=1;
+    const value=valueAt(state.frame);
+    for(const [field,key] of [["keyX","x"],["keyY","y"],["keyScale","scale"],["keyRotation","rotation"]]){
+      if(document.activeElement!==$(field))$(field).value=Number(value[key]).toFixed(key==="rotation"?1:3);
+    }
+    const ticks=$("keyTicks");
+    const signature=state.keyframes.map(k=>k.frame).join(",")+":"+state.frame+":"+maxFrame;
+    if(ticks.dataset.signature!==signature){
+      ticks.dataset.signature=signature;ticks.replaceChildren();
+      for(const key of state.keyframes){
+        if(key.frame>maxFrame)continue;
+        const marker=document.createElement("button");
+        marker.type="button";marker.title="Keyframe "+key.frame;
+        marker.className=key.frame===state.frame?"current":"";
+        marker.style.left=(key.frame/Math.max(1,maxFrame)*100)+"%";
+        marker.setAttribute("aria-label","Jump to keyframe "+key.frame);
+        marker.addEventListener("click",()=>{pause();setFrame(key.frame);});
+        ticks.append(marker);
+      }
+    }
+    $("prevKey").disabled=nearestKeyframe(state.keyframes,state.frame,-1)===null;
+    $("nextKey").disabled=nearestKeyframe(state.keyframes,state.frame,1)===null;
   }
+
   function drawCover(c,image){
     const iw=image.videoWidth||image.naturalWidth||image.width;
     const ih=image.videoHeight||image.naturalHeight||image.height;
     if(!iw||!ih)return;
-    const s=Math.max(W/iw,H/ih),w=iw*s,h=ih*s;
+    const s=(state.fit==="contain"?Math.min:Math.max)(W/iw,H/ih),w=iw*s,h=ih*s;
     c.drawImage(image,(W-w)/2,(H-h)/2,w,h);
   }
   function resetCanvas(c){c.clearRect(0,0,W,H);}
@@ -340,7 +354,7 @@
     }
     c.restore();
   }
-  function draw(){
+  function draw(forceMask=false){
     if(!ctx)return;
     const t=state.frame/FPS;
     if(sourceType==="demo"){
@@ -355,7 +369,7 @@
           }
         }catch(_){}
       }
-      autoSegmentFrame();
+      autoSegmentFrame(forceMask);
       mapCacheUpdate();
     }
     if(view==="matte"){
@@ -424,6 +438,7 @@
     $("depth").value=state.depth;$("opacity").value=state.opacity;
     $("typeface").value=state.fontChoice;$("tint").value=state.color;
     $("occlusion").value=state.occlusion;
+    $("fit").value=state.fit||"cover";
     $("sizeOut").textContent=String(state.font_size);
     $("depthOut").textContent=Number(state.depth).toFixed(2);
     $("opacityOut").textContent=Math.round(state.opacity*100)+"%";
@@ -481,13 +496,14 @@
           v.load();
         });
         if(!Number.isFinite(v.duration)||v.duration<=0)throw Error("The clip has no readable duration.");
-        v.onseeked=()=>{segLastMediaTime=-100;draw();};
+        v.onseeked=()=>{segLastMediaTime=-100;if(!exportingFrames)draw();};
         v.onloadeddata=()=>draw();
         media=v;sourceType="video";maxFrame=Math.max(1,Math.floor(Math.min(v.duration,MAX_WEB_SECONDS)*FPS));
         if(v.duration>MAX_WEB_SECONDS)toast("Showing the first 60 seconds of this clip.");
       }else throw Error("Choose an image or video file.");
       media.dataset.fileName=file.name;
       state.frame=0;$("scrub").max=maxFrame;
+      trimIn=0;trimOut=maxFrame;syncTrim();
       updateSourceUI();draw();syncAutoButton();
       toast("Video loaded. Preparing automatic person masking…");
       enableAutoMask();
@@ -521,7 +537,7 @@
         recorder=null;
       };
       recorder.start(800);
-      recordStopTime=Math.min(media.duration-.02,media.currentTime+12);
+      recordStopTime=Math.min(media.duration-.02,trimOut/FPS,media.currentTime+12);
       $("exportVideo").textContent="■ FINISH RECORD";
       toast("Recording the next 12s max in real time. Audio is not included.");
       start();
@@ -530,24 +546,106 @@
       toast("Recording unavailable: "+e.message);
     }
   }
+
+  async function seekVideo(seconds){
+    if(sourceType!=="video"||!media)return;
+    const at=clamp(seconds,0,Math.max(0,(media.duration||0)-.004));
+    if(Math.abs(media.currentTime-at)<.007&&media.readyState>=2)return;
+    await new Promise((resolve,reject)=>{
+      let done=false;
+      const finish=error=>{
+        if(done)return;done=true;clearTimeout(timer);
+        media.removeEventListener("seeked",success);
+        media.removeEventListener("error",fail);
+        error?reject(error):resolve();
+      };
+      const success=()=>finish();
+      const fail=()=>finish(Error("Video failed during seek"));
+      const timer=setTimeout(()=>finish(Error("Video seek timed out")),6500);
+      media.addEventListener("seeked",success);
+      media.addEventListener("error",fail);
+      try{media.currentTime=at;}catch(e){finish(e);}
+    });
+  }
+  async function exportFramePack(){
+    if(exportingFrames){exportAbort=true;return;}
+    pause();
+    const [first,end]=clampTrim(trimIn,trimOut,maxFrame);
+    const last=Math.min(end,first+6*FPS);
+    const frameNumbers=[];
+    for(let i=first;i<=last;i+=2)frameNumbers.push(i);
+    if(frameNumbers.at(-1)!==last)frameNumbers.push(last);
+    const restore=state.frame,entries=[];
+    exportingFrames=true;exportAbort=false;
+    $("exportVideo").disabled=true;$("exportPng").disabled=true;
+    $("exportFrames").textContent="■ CANCEL EXPORT";
+    let byteCount=0;
+    const manifest={
+      format:"Film Lab V0.5 baked composite frame pack",
+      note:"Frames already contain typography. No audio. Not a depth or alpha sequence.",
+      fps:12,dimensions:[W,H],source_start_frame:first,source_end_frame:last,
+      source_type:sourceType,source_name:media?.dataset?.fileName||"synthetic demo",
+      original_frame_rate_assumed:FPS,
+      occlusion_method:!maskAsset?"unoccluded draft":depthAsset?"imported depth":"on-device matte / 2.5D editorial",
+      authoring_project:projectPayload(),frames:[]
+    };
+    try{
+      for(let i=0;i<frameNumbers.length;i++){
+        if(exportAbort)throw Error("Cancelled");
+        const frame=frameNumbers[i];
+        if(sourceType==="video")await seekVideo(frame/FPS);
+        state.frame=frame;segLastMediaTime=-100;segLastAt=0;
+        draw(true);
+        const blob=await new Promise((resolve,reject)=>
+          canvas.toBlob(data=>data?resolve(data):reject(Error("Cannot encode frame")),
+                        "image/jpeg",.85));
+        byteCount+=blob.size;
+        if(byteCount>80*1024*1024)throw Error("Pack too large for mobile. Use shorter IN/OUT");
+        const path="frames/"+String(i).padStart(4,"0")+".jpg";
+        entries.push({name:path,data:blob});
+        manifest.frames.push({path,source_frame:frame,time_seconds:frame/FPS});
+        $("exportProgress").textContent="RENDERING "+(i+1)+"/"+frameNumbers.length+
+          " · "+(byteCount/1048576).toFixed(1)+" MB";
+        if(i%4===0)await new Promise(resolve=>setTimeout(resolve,0));
+      }
+      entries.push({name:"manifest.json",data:JSON.stringify(manifest,null,2)+"\n"});
+      entries.push({name:"README.txt",data:
+        "Film Lab composite frames — 12 frames per second. No audio.\n"+
+        "Frames are already composited. Metadata and authoring settings: manifest.json.\n"+
+        "To assemble locally with FFmpeg after unzipping:\n"+
+        "ffmpeg -framerate 12 -i frames/%04d.jpg -c:v libx264 -pix_fmt yuv420p output.mp4\n"});
+      $("exportProgress").textContent="PACKAGING…";
+      const zip=await zipStore(entries);
+      download("film-lab-frames-"+String(first).padStart(4,"0")+".zip",zip);
+      $("exportProgress").textContent="EXPORT READY · "+frameNumbers.length+" FRAMES";
+      toast("Frame pack exported. Contains baked JPEG frames and metadata.");
+    }catch(e){
+      $("exportProgress").textContent=e.message;
+      if(!exportAbort)toast("Frame pack: "+e.message);
+    }finally{
+      try{
+        if(sourceType==="video")await seekVideo(restore/FPS);
+        state.frame=restore;segLastMediaTime=-100;draw(true);
+      }catch(_){}
+      exportingFrames=false;exportAbort=false;
+      $("exportVideo").disabled=false;$("exportPng").disabled=false;
+      $("exportFrames").textContent="↓ FRAME PACK (.ZIP)";
+    }
+  }
   function download(name,blob){
     const a=document.createElement("a"),url=URL.createObjectURL(blob);
     a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
     setTimeout(()=>URL.revokeObjectURL(url),30000);
   }
+  function projectPayload(){
+    return {fps:FPS,layers:[{text:state.text||"TYPE",font:null,font_size:state.font_size,
+      color:state.color,opacity:state.opacity,depth:state.depth,
+      occlusion:state.occlusion,tracking:"none",
+      keyframes:state.keyframes.map(k=>({...k,frame:Math.round(k.frame)}))
+        .sort((a,b)=>a.frame-b.frame)}]};
+  }
   function exportProject(){
-    // No temporary browser-only fields or base64 source footage in exported artifact.
-    const keys=state.keyframes.map(k=>({...k,frame:Math.max(0,Math.round(k.frame))}))
-      .sort((a,b)=>a.frame-b.frame);
-    const project={
-      fps:FPS,
-      layers:[{
-        text:state.text||"TYPE",font:null,font_size:state.font_size,
-        color:state.color,opacity:state.opacity,depth:state.depth,
-        occlusion:state.occlusion,tracking:"none",
-        keyframes:keys
-      }]
-    };
+    const project=projectPayload();
     download("film-lab-pocket-shot.json",
       new Blob([JSON.stringify(project,null,2)+"\n"],{type:"application/json"}));
     toast("Project JSON exported. Keep the source frames alongside it.");
@@ -582,6 +680,45 @@
     });
   }
   $("copy").addEventListener("input",e=>{state.text=e.target.value;persist();draw();});
+  $("fit").addEventListener("change",e=>{
+    state.fit=e.target.value==="contain"?"contain":"cover";
+    segLastMediaTime=-100;segLastAt=0;overlayCacheKey="";
+    persist();draw();
+  });
+  for(const [id,field,min,max] of [
+    ["keyX","x",0,1],["keyY","y",0,1],["keyScale","scale",.05,6],
+    ["keyRotation","rotation",-360,360]
+  ]){
+    $(id).addEventListener("focus",pause);
+    $(id).addEventListener("change",()=>{
+      const n=Number($(id).value);
+      if(!Number.isFinite(n))return;
+      const pose=valueAt(state.frame);
+      state.keyframes=putKeyframe(state.keyframes,state.frame,{
+        ...pose,[field]:clamp(n,min,max)
+      });
+      persist();updateKeyLabel();draw();
+    });
+  }
+  for(const [id,direction] of [["prevKey",-1],["nextKey",1]]){
+    $(id).addEventListener("click",()=>{
+      const frame=nearestKeyframe(state.keyframes,state.frame,direction);
+      if(frame!==null){pause();setFrame(frame);}
+    });
+  }
+  $("removeKey").addEventListener("click",()=>{
+    state.keyframes=removeKeyframe(state.keyframes,state.frame);
+    persist();updateKeyLabel();draw();
+  });
+  $("markIn").addEventListener("click",()=>{
+    trimIn=Math.min(state.frame,trimOut);syncTrim();toast("IN at "+(trimIn/FPS).toFixed(2)+"s");
+  });
+  $("markOut").addEventListener("click",()=>{
+    trimOut=Math.max(state.frame,trimIn);syncTrim();toast("OUT at "+(trimOut/FPS).toFixed(2)+"s");
+  });
+  $("clearTrim").addEventListener("click",()=>{
+    trimIn=0;trimOut=maxFrame;syncTrim();toast("Full shot range restored");
+  });
   $("typeface").addEventListener("change",e=>{state.fontChoice=e.target.value;persist();draw();});
   $("tint").addEventListener("change",e=>{state.color=e.target.value;persist();draw();});
   $("occlusion").addEventListener("change",e=>{state.occlusion=e.target.value;overlayCacheKey="";persist();draw();});
@@ -603,6 +740,7 @@
     pause();state=initial();sourceType="demo";media=null;
     segGeneration++;autoEnabled=false;autoLoading=false;segmentStatus="idle";
     maskAsset=null;depthAsset=null;overlayCacheKey="";maxFrame=240;view="composite";
+    trimIn=0;trimOut=maxFrame;syncTrim();
     syncAutoButton();setMaskStatus("DEMO MASK ACTIVE");
     if(mediaObjectUrl){URL.revokeObjectURL(mediaObjectUrl);mediaObjectUrl=null;}
     document.querySelectorAll("button[data-view]").forEach(b=>{
@@ -614,6 +752,7 @@
   $("downloadProjectTop").addEventListener("click",exportProject);
   $("exportPng").addEventListener("click",exportFrame);
   $("exportVideo").addEventListener("click",recordClip);
+  $("exportFrames").addEventListener("click",exportFramePack);
   $("autoMask").addEventListener("click",()=>{
     if(autoEnabled){autoEnabled=false;syncAutoButton();setMaskStatus("AUTO MASK PAUSED");}
     else enableAutoMask();
@@ -626,6 +765,6 @@
     if(e.code==="Space"){e.preventDefault();if(playing)pause();else start();}
   });
   document.addEventListener("visibilitychange",()=>{if(document.hidden)pause();});
-  syncInputs();updateSourceUI();syncAutoButton();draw();document.fonts?.ready.then(()=>draw());
+  syncInputs();syncTrim();updateSourceUI();syncAutoButton();draw();document.fonts?.ready.then(()=>draw());
   frameRequest=requestAnimationFrame(animation);
 })();

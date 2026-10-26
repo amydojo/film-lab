@@ -44,3 +44,24 @@ As always, do not screen-share confidential patient data or create public previe
 Mobile Safari / Chrome: Web video decoding and File API behavior depend on browser support.
 For clinical footage, use local editor + source imagery only under your organization's
 permissions and security requirements. This web companion isn't a clinical media vault.
+
+
+## V0.5 — Keyframe editing and deterministic fallback export
+
+Mobile Studio adds clickable timeline keyframes, prev/next/delete and numeric X/Y,
+scale and rotation controls, with a preserved editable project JSON export. Set
+IN and OUT while scrubbing and change the source fitting mode between crop and
+letterbox. The browser remains a local, on-device previsualization tool.
+
+FRAME PACK (.ZIP) exports a bounded 6-second section as an already-composited
+sequence at 12 FPS, accompanied by manifest.json and assembly instructions.
+Each frame is sought and encoded separately so it does not depend on browser
+captureStream or MediaRecorder support on iOS. Clips are silent.
+On limited-memory phones the app caps accumulated image data at 80 MB. Film Lab's
+MP4 recorder is still available where supported and remains browser-dependent.
+PNG frame, project JSON and ZIP are all downloaded locally.
+
+The exported frame pack is not alpha maps or a replacement for full-resolution
+VFX exports; it is a practical way to view/reassemble a short edit reliably on
+a desktop. MediaPipe subject masks can lag/produce artifacts, and no true
+geometric depth is inferred on mobile.

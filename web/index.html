@@ -7,7 +7,7 @@
 <meta name="description" content="Film Lab Pocket Studio — a mobile-first spatial typography experiment.">
 <title>FILM / LAB — Pocket Studio</title>
 <link rel="stylesheet" href="./styles.css">
-<script src="./app.js" defer></script>
+<script type="module" src="./app.js"></script>
 </head>
 <body>
 <header class="masthead">
@@ -23,7 +23,7 @@
     <p>Move the text. Change its depth. Watch it pass behind a silhouette. An interactive visual study — not another static overlay.</p>
     <div class="intro-rule">
       <span>01 / DESIGN THE DEPTH</span>
-      <span class="fraction">V 0.3 — WEB COMPANION</span>
+      <span class="fraction">V 0.5 — EDIT + EXPORT</span>
     </div>
   </section>
 
@@ -45,7 +45,7 @@
         <div class="film-marker film-marker-bottom">DEPTH IS AN EDITORIAL DECISION</div>
       </div>
       <div class="under-film">
-        <div class="frame-counter"><span id="frameCount">000</span> <small>/ 240 FRAMES</small></div>
+        <div class="frame-counter"><span id="frameCount">000</span> <small id="totalFrames">/ 240 FRAMES</small></div>
         <span id="modeCaption">SUBJECT OCCLUSION ACTIVE</span>
       </div>
       <div class="transport">
@@ -53,7 +53,13 @@
         <input id="scrub" type="range" min="0" max="240" step="1" value="0" aria-label="Scrub to frame">
         <span class="timecode" id="timecode">00:00.00</span>
       </div>
-      <div class="timeline-meta"><span>IN</span><span id="keyframeStatus">● 3 KEYFRAMES</span><span>OUT</span></div>
+      <div class="key-ticks" id="keyTicks" aria-label="Keyframe markers"></div>
+      <div class="timeline-meta"><span>IN <b id="inTime">0.00s</b></span><span id="keyframeStatus">● 3 KEYFRAMES</span><span>OUT <b id="outTime">10.00s</b></span></div>
+      <div class="trim-actions">
+        <button type="button" id="markIn" title="Set export beginning to this frame">[ SET IN</button>
+        <button type="button" id="markOut" title="Set export end to this frame">SET OUT ]</button>
+        <button type="button" id="clearTrim" title="Use the whole clip">RESET RANGE</button>
+      </div>
     </div>
 
     <section class="inspector" aria-label="Typography controls">
@@ -64,9 +70,26 @@
         <input id="sourceFile" class="visually-hidden" type="file" accept="video/*,image/*">
       </div>
       <div class="parameter">
+        <div class="parameter-label"><label for="fit">SOURCE FRAME</label></div>
+        <select id="fit"><option value="cover">FILL / CROP</option><option value="contain">FIT / LETTERBOX</option></select>
+      </div>
+      <div class="parameter">
         <div class="parameter-label"><label for="copy">TEXT / CONTENT</label><span>01</span></div>
         <textarea id="copy" maxlength="80" rows="2" spellcheck="false">SPACE
 HAS MEMORY</textarea>
+      </div>
+      <div class="keyframe-editor">
+        <div class="parameter-label"><span>KEYFRAME / POSITION + MOTION</span><output id="keyReadout">FRAME 000</output></div>
+        <div class="keyframe-nav">
+          <button type="button" id="prevKey">← PREV</button><button type="button" id="nextKey">NEXT →</button>
+          <button type="button" id="removeKey">DELETE KEY</button>
+        </div>
+        <div class="keyframe-grid">
+          <label>X <input id="keyX" type="number" min="0" max="1" step=".01" value=".5"></label>
+          <label>Y <input id="keyY" type="number" min="0" max="1" step=".01" value=".4"></label>
+          <label>SCALE <input id="keyScale" type="number" min=".05" max="6" step=".05" value="1"></label>
+          <label>ANGLE <input id="keyRotation" type="number" min="-360" max="360" step="1" value="0"></label>
+        </div>
       </div>
       <div class="parameter">
         <div class="parameter-label"><label for="size">SCALE / TYPOGRAPHY</label><output id="sizeOut" for="size">92</output></div>
@@ -112,12 +135,14 @@ HAS MEMORY</textarea>
         <button type="button" id="reset" class="secondary-btn">↺ RESET</button>
         <button type="button" id="exportPng" class="solid-btn">↓ EXPORT FRAME</button>
         <button type="button" id="exportVideo" class="solid-btn clip-btn">↓ EXPORT CLIP</button>
+        <button type="button" id="exportFrames" class="solid-btn clip-btn">↓ FRAME PACK (.ZIP)</button>
+        <output id="exportProgress" class="export-progress" aria-live="polite"></output>
       </div>
     </section>
   </section>
   <footer class="footer">
     <div class="footer-title">MOVEMENT IS MATERIAL.</div>
-    <div>This browser study preserves your files locally. Auto person masks are inferred on-device, but real geometric depth and temporal stabilization require the Python engine. Browser clip exports are limited to short, silent real-time recordings and depend on Safari/Chrome support. <a href="https://github.com/amydojo/film-lab" target="_blank" rel="noopener noreferrer">SOURCE / GITHUB ↗</a></div>
+    <div>This browser study preserves your files locally. Auto person masks are inferred on-device, but real geometric depth and temporal stabilization require the Python engine. Browser clip exports depend on device support. Frame Pack provides a silent, frame-indexed JPG sequence in ZIP form for reproducible assembly. <a href="https://github.com/amydojo/film-lab" target="_blank" rel="noopener noreferrer">SOURCE / GITHUB ↗</a></div>
   </footer>
 </main>
 <div id="toast" role="status" aria-live="polite"></div>
