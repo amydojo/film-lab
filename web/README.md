@@ -65,3 +65,45 @@ The exported frame pack is not alpha maps or a replacement for full-resolution
 VFX exports; it is a practical way to view/reassemble a short edit reliably on
 a desktop. MediaPipe subject masks can lag/produce artifacts, and no true
 geometric depth is inferred on mobile.
+
+
+## V0.6 — Real relative depth for phone footage
+
+The browser now supports a real model-produced monocular depth map. Tap
+GENERATE DEPTH after importing a photo/video. On first use, the browser
+downloads a pretrained Depth Anything V2 Small ONNX checkpoint and the
+Transformers.js runtime; expect significant download and memory demands.
+WebGPU is attempted first, with WASM CPU fallback.
+
+The model is Depth Anything V2 Small, not Depth Anything 3. The full
+Depth Anything 3 multi-frame inference adapter remains in the Python
+pipeline for GPU-equipped production. Neither model produces certified
+metric distances for a single phone image.
+
+With an Auto Mask alpha matte available:
+- The depth map is normalized relative nearness (white closer) and tested
+  pixel-by-pixel against the selected text depth plane.
+- GENERATE DEPTH estimates one source frame on request.
+- TRACK DEPTH periodically samples moving video frames (device dependent).
+  It is not guaranteed continuous full-framerate inference.
+- Predictions are softly blended with prior estimates when temporally close
+  and preserve large motion discontinuities.
+- When a video prediction is >0.45 seconds old, tracked depth is not used
+  to occlude moving limbs: the renderer falls back to the whole person
+  matte for safety. In non-tracked mode the legacy editorial 2.5D fallback
+  remains visible and explicitly labeled.
+- Importing a depth map still works and is treated as an author-supplied
+  static map; it will not follow movement.
+
+For privacy, source frames are processed locally in-browser. The model
+and JavaScript/WASM assets are downloaded from Hugging Face/CDN/Google
+as needed. No image frames are deliberately uploaded to model services.
+Check your organization's controls before loading patient footage.
+
+Frame Pack ZIP export performs per-frame depth inference for model-assisted shots and limits those packs to 2 seconds at 8 FPS. This can still be slow on phones; failed depth inference aborts the export rather than substituting fake depth.
+Use a local GPU computer and Python DA3 for reliable final rendering.
+
+Potential limitations: model download failure, Safari memory limits,
+relative-depth polarity errors on challenging footage, inter-frame scale
+drift, edge halos, motion blur and inaccurate overlapping limbs. This
+release adds real image depth analysis, not cinematic-grade matte repair.

@@ -5,6 +5,7 @@
 "use strict";
 import {interpolate,putKeyframe,removeKeyframe,nearestKeyframe,clampTrim} from "./timeline.js";
 import {zipStore} from "./frame-pack.js";
+import {occlusionPixels,temporalDepth,depthMetrics} from "./depth-math.js";
 (() => {
   const W=540,H=960,FPS=24,MAX_WEB_SECONDS=60,VERSION="film-lab-pocket-v03";
   const $=id=>document.getElementById(id);
@@ -29,6 +30,86 @@ import {zipStore} from "./frame-pack.js";
       sourceType="demo",frameRequest=0,lastTick=0,toastTimer=null,
       maskAsset=null,depthAsset=null,overlayCacheKey="",pointerDown=false;
   let mediaObjectUrl=null;
+  let depthRunner=null,depthTrackingEnabled=false,depthLoading=false,
+      depthGeneration=0,depthInFlight=null,depthPrevious=null,
+      depthLastStarted=0,depthSerial=0,depthError="";
+  function depthLabel(text){$("depthStatus").textContent=text;}
+  function depthButtons(){
+    const off=sourceType==="demo";
+    $("depthAnalyze").disabled=off||depthLoading||!!depthInFlight;
+    $("depthAuto").disabled=off||depthLoading;
+    $("depthAuto").setAttribute("aria-pressed",String(depthTrackingEnabled));
+    $("depthAuto").textContent=depthTrackingEnabled?"TRACK DEPTH: ON":"TRACK DEPTH: OFF";
+  }
+  function usableDepth(){
+    if(!depthAsset)return null;
+    if(depthAsset.source!=="v2"||sourceType!=="video")return depthAsset.data;
+    if(Math.abs((media?.currentTime||0)-depthAsset.sourceSeconds)>.45)return null;
+    return depthAsset.data;
+  }
+  function resetDepthSource(){
+    depthGeneration++;depthTrackingEnabled=false;depthLoading=false;
+    depthInFlight=null;depthPrevious=null;depthLastStarted=0;depthError="";
+    depthAsset=null;overlayCacheKey="";
+    depthButtons();depthLabel("TAP GENERATE DEPTH FOR REAL RELATIVE GEOMETRY");
+  }
+  async function analyzeDepthFrame(force=false){
+    if(sourceType==="demo"||!media||sourceType==="video"&&media.readyState<2)return false;
+    if(depthInFlight)return force?await depthInFlight:false;
+    if(!force&&!depthTrackingEnabled)return false;
+    if(!force&&performance.now()-depthLastStarted<1700)return false;
+    // Never run expensive inference without an explicit user opt-in.
+    if(!depthRunner&&!force&&!depthTrackingEnabled)return false;
+    const generation=depthGeneration,sourceSeconds=sourceType==="video"?media.currentTime:0;
+    const frame=state.frame;
+    // Snapshot before the first await; playback can change the active video frame.
+    const snapshot=document.createElement("canvas");
+    snapshot.width=360;snapshot.height=640;
+    snapshot.getContext("2d").drawImage(base,0,0,360,640);
+    depthLastStarted=performance.now();
+    depthLoading=true;depthButtons();
+    depthInFlight=(async()=>{
+      try{
+        if(!depthRunner){
+          const {BrowserDepthEngine}=await import("./depth-engine.js");
+          if(generation!==depthGeneration)return false;
+          depthRunner=new BrowserDepthEngine(W,H);
+        }
+        await depthRunner.load(message=>{
+          if(generation===depthGeneration)depthLabel(message.toUpperCase());
+        });
+        if(generation!==depthGeneration)return false;
+        depthLabel("INFERRING REAL SCENE DEPTH…");
+        const raw=await depthRunner.predict(snapshot);
+        if(generation!==depthGeneration)return false;
+        if(!raw||raw.length!==W*H)throw Error("Invalid depth output size");
+        const age=depthAsset?.source==="v2"?
+          Math.abs(depthAsset.sourceSeconds-sourceSeconds):100;
+        const data=age<1.8?temporalDepth(depthPrevious,raw,.22):raw;
+        const contrast=depthMetrics(data).contrast;
+        if(contrast<.015)throw Error("Depth prediction lacks spatial contrast");
+        depthPrevious=data;
+        depthAsset={data,source:"v2",id:++depthSerial,frame,
+          sourceSeconds,model:"Depth Anything V2 Small",contrast};
+        overlayCacheKey="";
+        depthLabel("REAL DEPTH READY · "+depthRunner.accelerator.toUpperCase()+
+          " · CONTRAST "+Math.round(contrast*100)+"%");
+        if(!exportingFrames)draw();
+        return true;
+      }catch(error){
+        if(generation!==depthGeneration)return false;
+        depthError=error.message;
+        depthLabel("DEPTH FAILED: "+error.message);
+        if(force&&!exportingFrames)toast("Depth unavailable: "+error.message);
+        depthTrackingEnabled=false;
+        return false;
+      }finally{
+        if(generation===depthGeneration){depthLoading=false;depthButtons();}
+      }
+    })();
+    try{return await depthInFlight;}finally{if(generation===depthGeneration){depthInFlight=null;depthButtons();}}
+  }
+
   let trimIn=0,trimOut=240,exportingFrames=false,exportAbort=false;
   function syncTrim(){
     [trimIn,trimOut]=clampTrim(trimIn,trimOut,maxFrame);
@@ -283,21 +364,26 @@ import {zipStore} from "./frame-pack.js";
   }
   function mapCacheUpdate(){
     if(sourceType==="demo")return;
-    const key=[state.depth,state.occlusion,maskAsset?.id,depthAsset?.id].join(":");
+    const depth=usableDepth();
+    const fallback=state.occlusion==="depth"&&!depth&&depthTrackingEnabled;
+    const key=[state.depth,state.occlusion,maskAsset?.id,depthAsset?.id,
+      Boolean(depth),fallback].join(":");
     if(key===overlayCacheKey)return;
     overlayCacheKey=key;
-    const a=maskAsset?.data,d=depthAsset?.data;
     resetCanvas(ocCtx);
-    if(!a||state.occlusion==="none")return;
+    const alpha=maskAsset?.data;
+    if(!alpha||state.occlusion==="none")return;
+    // Never use stale depth for a moving human. Track mode fails safe to the
+    // entire person matte; explicit editorial mode retains the old 2.5D preview.
+    const occlusion=occlusionPixels(alpha,depth,{
+      mode:fallback?"person":state.occlusion,
+      textDepth:state.depth,feather:.055,
+      editorialFallback:!depthTrackingEnabled
+    });
     const pixels=ocCtx.createImageData(W,H);
-    for(let i=0;i<a.length;i++){
-      const idx=i*4,m=a[i]/255;
-      // Without actual depth maps use an explicitly labeled, controllable 2.5D
-      // front/behind blend. Do not pretend to estimate geometric distance.
-      const z=state.occlusion==="person"?1:!d?smooth(.28,.52,1-state.depth):
-        smooth(state.depth-.05,state.depth+.05,d[i]/255);
-      pixels.data[idx]=255;pixels.data[idx+1]=255;pixels.data[idx+2]=255;
-      pixels.data[idx+3]=Math.round(255*m*z);
+    for(let i=0;i<occlusion.length;i++){
+      const p=i*4;pixels.data[p]=255;pixels.data[p+1]=255;
+      pixels.data[p+2]=255;pixels.data[p+3]=occlusion[i];
     }
     ocCtx.putImageData(pixels,0,0);
   }
@@ -371,6 +457,7 @@ import {zipStore} from "./frame-pack.js";
       }
       autoSegmentFrame(forceMask);
       mapCacheUpdate();
+      if(!exportingFrames&&depthTrackingEnabled&&!depthInFlight)void analyzeDepthFrame(false);
     }
     if(view==="matte"){
       if(sourceType==="demo")ctx.drawImage(matteView,0,0);
@@ -381,16 +468,19 @@ import {zipStore} from "./frame-pack.js";
       if(sourceType==="demo")ctx.drawImage(depthView,0,0);
       else if(depthAsset){importedMaps();ctx.drawImage(depthView,0,0);}
       else{ctx.fillStyle="#12100e";ctx.fillRect(0,0,W,H);}
-      $("modeCaption").textContent=sourceType==="demo"||depthAsset?"NEAR = WHITE":"NO DEPTH · 2.5D EDITORIAL CONTROL";
+      $("modeCaption").textContent=depthAsset?.source==="v2"?(usableDepth()?"REAL V2 DEPTH / NEAR = WHITE":"LAST V2 DEPTH / STALE FRAME"):sourceType==="demo"||depthAsset?"DEPTH MAP / NEAR = WHITE":"NO DEPTH · TAP GENERATE DEPTH";
     }else{
       ctx.drawImage(base,0,0);
       typography();
       ctx.drawImage(glyph,0,0);
       filmTexture(ctx,t);
-      const ready=sourceType==="demo"||!!maskAsset;
+      const ready=sourceType==="demo"||!!maskAsset,real=!!usableDepth();
       $("modeCaption").textContent=state.occlusion==="none"?"FRONT / NO MASK":
-        !ready?"NO MATTE · USE AUTO MASK":!depthAsset&&sourceType!=="demo"&&state.occlusion==="depth"?
-        "2.5D OCCLUSION · NO TRUE DEPTH":"PERSON OCCLUSION / LIVE";
+        !ready?"NO MATTE · ENABLE AUTO MASK":
+        real&&depthAsset?.source==="v2"?"REAL DEPTH · DEPTH ANYTHING V2":
+        depthTrackingEnabled?"STALE DEPTH · SAFE PERSON OCCLUSION":
+        state.occlusion==="depth"?"EDITORIAL 2.5D · GENERATE DEPTH":
+        "PERSON MATTE OCCLUSION";
     }
     $("frameCount").textContent=String(state.frame).padStart(3,"0");
     $("timecode").textContent="00:"+String(Math.floor(t)).padStart(2,"0")+
@@ -483,6 +573,7 @@ import {zipStore} from "./frame-pack.js";
     segLastMediaTime=-100;segLastAt=0;
     if(mediaObjectUrl){URL.revokeObjectURL(mediaObjectUrl);mediaObjectUrl=null;}
     maskAsset=null;depthAsset=null;overlayCacheKey="";
+    resetDepthSource();
     syncAutoButton();setMaskStatus("STARTING SOURCE…");
     try{
       if(file.type.startsWith("image/")){
@@ -504,7 +595,7 @@ import {zipStore} from "./frame-pack.js";
       media.dataset.fileName=file.name;
       state.frame=0;$("scrub").max=maxFrame;
       trimIn=0;trimOut=maxFrame;syncTrim();
-      updateSourceUI();draw();syncAutoButton();
+      updateSourceUI();draw();syncAutoButton();depthButtons();
       toast("Video loaded. Preparing automatic person masking…");
       enableAutoMask();
     }catch(e){sourceType="demo";media=null;maxFrame=240;syncAutoButton();updateSourceUI();toast(e.message);}
@@ -571,9 +662,13 @@ import {zipStore} from "./frame-pack.js";
     if(exportingFrames){exportAbort=true;return;}
     pause();
     const [first,end]=clampTrim(trimIn,trimOut,maxFrame);
-    const last=Math.min(end,first+6*FPS);
+    const realDepthRequested=sourceType!=="demo"&&(depthTrackingEnabled||depthAsset?.source==="v2");
+    // Full per-frame model inference is expensive on mobile. Bound these jobs.
+    const last=Math.min(end,first+(realDepthRequested?2*FPS:6*FPS));
+    const frameStep=realDepthRequested?3:2;
+    const outputFPS=FPS/frameStep;
     const frameNumbers=[];
-    for(let i=first;i<=last;i+=2)frameNumbers.push(i);
+    for(let i=first;i<=last;i+=frameStep)frameNumbers.push(i);
     if(frameNumbers.at(-1)!==last)frameNumbers.push(last);
     const restore=state.frame,entries=[];
     exportingFrames=true;exportAbort=false;
@@ -581,9 +676,9 @@ import {zipStore} from "./frame-pack.js";
     $("exportFrames").textContent="■ CANCEL EXPORT";
     let byteCount=0;
     const manifest={
-      format:"Film Lab V0.5 baked composite frame pack",
+      format:"Film Lab V0.6 baked composite frame pack",
       note:"Frames already contain typography. No audio. Not a depth or alpha sequence.",
-      fps:12,dimensions:[W,H],source_start_frame:first,source_end_frame:last,
+      fps:outputFPS,dimensions:[W,H],source_start_frame:first,source_end_frame:last,
       source_type:sourceType,source_name:media?.dataset?.fileName||"synthetic demo",
       original_frame_rate_assumed:FPS,
       occlusion_method:!maskAsset?"unoccluded draft":depthAsset?"imported depth":"on-device matte / 2.5D editorial",
@@ -596,6 +691,13 @@ import {zipStore} from "./frame-pack.js";
         if(sourceType==="video")await seekVideo(frame/FPS);
         state.frame=frame;segLastMediaTime=-100;segLastAt=0;
         draw(true);
+        if(realDepthRequested){
+          if(!autoEnabled||!maskAsset)throw Error("Enable AUTO MASK before real-depth export");
+          $("exportProgress").textContent="DEPTH INFERENCE "+(i+1)+"/"+frameNumbers.length;
+          const valid=await analyzeDepthFrame(true);
+          if(!valid||!usableDepth())throw Error("Real depth unavailable at frame "+frame);
+          draw(true);
+        }
         const blob=await new Promise((resolve,reject)=>
           canvas.toBlob(data=>data?resolve(data):reject(Error("Cannot encode frame")),
                         "image/jpeg",.85));
@@ -610,10 +712,10 @@ import {zipStore} from "./frame-pack.js";
       }
       entries.push({name:"manifest.json",data:JSON.stringify(manifest,null,2)+"\n"});
       entries.push({name:"README.txt",data:
-        "Film Lab composite frames — 12 frames per second. No audio.\n"+
+        "Film Lab composited frame sequence, see manifest for FPS. No audio.\n"+
         "Frames are already composited. Metadata and authoring settings: manifest.json.\n"+
         "To assemble locally with FFmpeg after unzipping:\n"+
-        "ffmpeg -framerate 12 -i frames/%04d.jpg -c:v libx264 -pix_fmt yuv420p output.mp4\n"});
+        "ffmpeg -framerate "+outputFPS+" -i frames/%04d.jpg -c:v libx264 -pix_fmt yuv420p output.mp4\n"});
       $("exportProgress").textContent="PACKAGING…";
       const zip=await zipStore(entries);
       download("film-lab-frames-"+String(first).padStart(4,"0")+".zip",zip);
@@ -740,6 +842,7 @@ import {zipStore} from "./frame-pack.js";
     pause();state=initial();sourceType="demo";media=null;
     segGeneration++;autoEnabled=false;autoLoading=false;segmentStatus="idle";
     maskAsset=null;depthAsset=null;overlayCacheKey="";maxFrame=240;view="composite";
+    resetDepthSource();
     trimIn=0;trimOut=maxFrame;syncTrim();
     syncAutoButton();setMaskStatus("DEMO MASK ACTIVE");
     if(mediaObjectUrl){URL.revokeObjectURL(mediaObjectUrl);mediaObjectUrl=null;}
@@ -753,6 +856,16 @@ import {zipStore} from "./frame-pack.js";
   $("exportPng").addEventListener("click",exportFrame);
   $("exportVideo").addEventListener("click",recordClip);
   $("exportFrames").addEventListener("click",exportFramePack);
+  $("depthAnalyze").addEventListener("click",()=>{
+    pause();void analyzeDepthFrame(true);
+  });
+  $("depthAuto").addEventListener("click",()=>{
+    depthTrackingEnabled=!depthTrackingEnabled;
+    overlayCacheKey="";depthButtons();
+    if(depthTrackingEnabled)void analyzeDepthFrame(true);
+    else depthLabel("TRACKING OFF · LAST DEPTH FRAME HELD");
+    draw();
+  });
   $("autoMask").addEventListener("click",()=>{
     if(autoEnabled){autoEnabled=false;syncAutoButton();setMaskStatus("AUTO MASK PAUSED");}
     else enableAutoMask();
@@ -765,6 +878,6 @@ import {zipStore} from "./frame-pack.js";
     if(e.code==="Space"){e.preventDefault();if(playing)pause();else start();}
   });
   document.addEventListener("visibilitychange",()=>{if(document.hidden)pause();});
-  syncInputs();syncTrim();updateSourceUI();syncAutoButton();draw();document.fonts?.ready.then(()=>draw());
+  syncInputs();syncTrim();updateSourceUI();syncAutoButton();depthButtons();draw();document.fonts?.ready.then(()=>draw());
   frameRequest=requestAnimationFrame(animation);
 })();

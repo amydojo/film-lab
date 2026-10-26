@@ -23,7 +23,7 @@
     <p>Move the text. Change its depth. Watch it pass behind a silhouette. An interactive visual study — not another static overlay.</p>
     <div class="intro-rule">
       <span>01 / DESIGN THE DEPTH</span>
-      <span class="fraction">V 0.5 — EDIT + EXPORT</span>
+      <span class="fraction">V 0.6 — REAL DEPTH</span>
     </div>
   </section>
 
@@ -96,7 +96,7 @@ HAS MEMORY</textarea>
         <input id="size" type="range" min="30" max="176" step="1" value="92">
       </div>
       <div class="parameter">
-        <div class="parameter-label"><label for="depth">Z-DEPTH / OCCLUSION</label><output id="depthOut" for="depth">0.45</output></div>
+        <div class="parameter-label"><label for="depth">TEXT Z-PLANE / NEARNESS</label><output id="depthOut" for="depth">0.45</output></div>
         <input id="depth" type="range" min="0" max="1" step=".01" value=".45">
         <div class="slider-notes"><span>BEHIND</span><span>IN FRONT</span></div>
       </div>
@@ -116,6 +116,15 @@ HAS MEMORY</textarea>
         <div class="parameter-label"><label for="occlusion">SPATIAL BEHAVIOR</label></div>
         <select id="occlusion"><option value="depth">DEPTH-AWARE</option><option value="person">BEHIND SUBJECT</option><option value="none">FOREGROUND</option></select>
       </div>
+      <div class="depth-panel">
+        <div class="parameter-label"><span>RELATIVE SCENE DEPTH / EXPERIMENT B</span><span>ON-DEVICE MODEL</span></div>
+        <div class="depth-actions">
+          <button type="button" id="depthAnalyze">◉ GENERATE DEPTH</button>
+          <button type="button" id="depthAuto" aria-pressed="false">TRACK DEPTH: OFF</button>
+        </div>
+        <output id="depthStatus" role="status" aria-live="polite">UPLOAD VIDEO → GENERATE DEPTH</output>
+        <p>Depth Anything V2 Small estimates actual relative depth. White = nearer. Tracking is sampled, not full-frame DA3.</p>
+      </div>
       <div class="auto-mask-panel">
         <button type="button" id="autoMask" class="auto-mask-button" aria-pressed="false">AUTO MASK: OFF</button>
         <output id="maskStatus" role="status" aria-live="polite">UPLOAD VIDEO TO ENABLE</output>
@@ -128,7 +137,7 @@ HAS MEMORY</textarea>
       </div>
       <div class="note" id="sourceNotice" aria-live="polite">
         <span class="note-symbol">↗</span>
-        <p>Try the moving-arm demo first. On your own footage, supply aligned alpha/depth maps to see real subject occlusion. Your media stays in this browser. Person detection downloads a MediaPipe model (and may report usage metrics).</p>
+        <p>Try the moving-arm demo, or import footage and tap GENERATE DEPTH for real relative scene depth. Your media stays in this browser. Person detection downloads a MediaPipe model (and may report usage metrics).</p>
       </div>
       <div class="inspector-actions">
         <button type="button" id="addKeyframe" class="secondary-btn">◇ SET KEYFRAME</button>
@@ -142,7 +151,7 @@ HAS MEMORY</textarea>
   </section>
   <footer class="footer">
     <div class="footer-title">MOVEMENT IS MATERIAL.</div>
-    <div>This browser study preserves your files locally. Auto person masks are inferred on-device, but real geometric depth and temporal stabilization require the Python engine. Browser clip exports depend on device support. Frame Pack provides a silent, frame-indexed JPG sequence in ZIP form for reproducible assembly. <a href="https://github.com/amydojo/film-lab" target="_blank" rel="noopener noreferrer">SOURCE / GITHUB ↗</a></div>
+    <div>This browser study preserves your files locally. Browser depth uses Depth Anything V2 Small relative predictions. Multi-view Depth Anything 3 and final temporal stabilization remain in the Python engine. Browser clip exports depend on device support. Frame Pack provides a silent, frame-indexed JPG sequence in ZIP form for reproducible assembly. <a href="https://github.com/amydojo/film-lab" target="_blank" rel="noopener noreferrer">SOURCE / GITHUB ↗</a></div>
   </footer>
 </main>
 <div id="toast" role="status" aria-live="polite"></div>
