@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#13100e">
+<meta name="description" content="Film Lab Pocket Studio — a mobile-first spatial typography experiment.">
+<title>FILM / LAB — Pocket Studio</title>
+<link rel="stylesheet" href="./styles.css">
+<script src="./app.js" defer></script>
+</head>
+<body>
+<header class="masthead">
+  <a class="wordmark" href="./" aria-label="Film Lab studio">FILM<span>/</span>LAB</a>
+  <div class="edition"><span class="amber-dot"></span>EXPERIMENT 001 <span class="thin"> / </span> POCKET STUDIO</div>
+  <button type="button" id="downloadProjectTop" class="top-download" title="Export editor settings as JSON">↓ <span>PROJECT</span></button>
+</header>
+
+<main class="layout">
+  <section class="intro" aria-labelledby="headline">
+    <div class="kicker">SPATIAL TYPOGRAPHY / LIVE EXPERIMENT</div>
+    <h1 id="headline">Type that lives <em>inside</em> the frame.</h1>
+    <p>Move the text. Change its depth. Watch it pass behind a silhouette. An interactive visual study — not another static overlay.</p>
+    <div class="intro-rule">
+      <span>01 / DESIGN THE DEPTH</span>
+      <span class="fraction">V 0.3 — WEB COMPANION</span>
+    </div>
+  </section>
+
+  <section class="workspace" aria-label="Spatial typography editor">
+    <div class="preview-area">
+      <div class="panel-heading">
+        <span class="tiny-heading">COMPOSITION / LIVE</span>
+        <div class="mode-tabs" role="group" aria-label="Preview mode">
+          <button type="button" data-view="composite" class="active" aria-pressed="true">COMPOSITE</button>
+          <button type="button" data-view="matte" aria-pressed="false">MATTE</button>
+          <button type="button" data-view="depth" aria-pressed="false">DEPTH</button>
+        </div>
+      </div>
+      <div id="frameWrap" class="frame-wrap">
+        <canvas id="film" width="540" height="960" aria-label="Interactive spatial type composition. Drag the outlined point to move text."></canvas>
+        <div id="dragLabel" class="drag-label" aria-hidden="true">DRAG TYPE <span>↗</span></div>
+        <div class="corner corner-tl"></div><div class="corner corner-br"></div>
+        <div class="film-marker film-marker-top">FILM LAB / EXPERIMENT A</div>
+        <div class="film-marker film-marker-bottom">DEPTH IS AN EDITORIAL DECISION</div>
+      </div>
+      <div class="under-film">
+        <div class="frame-counter"><span id="frameCount">000</span> <small>/ 240 FRAMES</small></div>
+        <span id="modeCaption">SUBJECT OCCLUSION ACTIVE</span>
+      </div>
+      <div class="transport">
+        <button type="button" id="play" class="play-button" aria-label="Pause animation">Ⅱ</button>
+        <input id="scrub" type="range" min="0" max="240" step="1" value="0" aria-label="Scrub to frame">
+        <span class="timecode" id="timecode">00:00.00</span>
+      </div>
+      <div class="timeline-meta"><span>IN</span><span id="keyframeStatus">● 3 KEYFRAMES</span><span>OUT</span></div>
+    </div>
+
+    <section class="inspector" aria-label="Typography controls">
+      <div class="panel-heading inspector-heading"><span class="tiny-heading">DIRECTION / PARAMETERS</span><span class="inspector-number">02 — 05</span></div>
+      <div class="source-bar">
+        <div><strong id="sourceName">THE REFERENCE SHOT</strong><small id="sourceDescription">Synthetic camera study / no footage uploaded</small></div>
+        <label class="source-upload" for="sourceFile">+ SOURCE</label>
+        <input id="sourceFile" class="visually-hidden" type="file" accept="video/*,image/*">
+      </div>
+      <div class="parameter">
+        <div class="parameter-label"><label for="copy">TEXT / CONTENT</label><span>01</span></div>
+        <textarea id="copy" maxlength="80" rows="2" spellcheck="false">SPACE
+HAS MEMORY</textarea>
+      </div>
+      <div class="parameter">
+        <div class="parameter-label"><label for="size">SCALE / TYPOGRAPHY</label><output id="sizeOut" for="size">92</output></div>
+        <input id="size" type="range" min="30" max="176" step="1" value="92">
+      </div>
+      <div class="parameter">
+        <div class="parameter-label"><label for="depth">Z-DEPTH / OCCLUSION</label><output id="depthOut" for="depth">0.45</output></div>
+        <input id="depth" type="range" min="0" max="1" step=".01" value=".45">
+        <div class="slider-notes"><span>BEHIND</span><span>IN FRONT</span></div>
+      </div>
+      <div class="parameter">
+        <div class="parameter-label"><label for="opacity">OPACITY</label><output id="opacityOut" for="opacity">100%</output></div>
+        <input id="opacity" type="range" min="0" max="1" step=".01" value="1">
+      </div>
+      <div class="duo-controls">
+        <div class="parameter"><div class="parameter-label"><label for="typeface">TYPEFACE</label></div>
+          <select id="typeface"><option value="editorial">EDITORIAL SERIF</option><option value="modern">MODERN GROT</option><option value="mono">MONOSPACE</option></select>
+        </div>
+        <div class="parameter"><div class="parameter-label"><label for="tint">INK</label></div>
+          <select id="tint"><option value="#efd9c4">BONE</option><option value="#cd8061">TERRACOTTA</option><option value="#faf6eb">PAPER</option><option value="#161310">ESPRESSO</option></select>
+        </div>
+      </div>
+      <div class="parameter">
+        <div class="parameter-label"><label for="occlusion">SPATIAL BEHAVIOR</label></div>
+        <select id="occlusion"><option value="depth">DEPTH-AWARE</option><option value="person">BEHIND SUBJECT</option><option value="none">FOREGROUND</option></select>
+      </div>
+      <div class="auto-mask-panel">
+        <button type="button" id="autoMask" class="auto-mask-button" aria-pressed="false">AUTO MASK: OFF</button>
+        <output id="maskStatus" role="status" aria-live="polite">UPLOAD VIDEO TO ENABLE</output>
+      </div>
+      <div class="import-row">
+        <label class="map-upload" for="matteFile">+ IMPORT ALPHA MATTE</label>
+        <label class="map-upload" for="depthFile">+ IMPORT DEPTH MAP</label>
+        <input id="matteFile" class="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp">
+        <input id="depthFile" class="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp">
+      </div>
+      <div class="note" id="sourceNotice" aria-live="polite">
+        <span class="note-symbol">↗</span>
+        <p>Try the moving-arm demo first. On your own footage, supply aligned alpha/depth maps to see real subject occlusion. Your media stays in this browser. Person detection downloads a MediaPipe model (and may report usage metrics).</p>
+      </div>
+      <div class="inspector-actions">
+        <button type="button" id="addKeyframe" class="secondary-btn">◇ SET KEYFRAME</button>
+        <button type="button" id="reset" class="secondary-btn">↺ RESET</button>
+        <button type="button" id="exportPng" class="solid-btn">↓ EXPORT FRAME</button>
+        <button type="button" id="exportVideo" class="solid-btn clip-btn">↓ EXPORT CLIP</button>
+      </div>
+    </section>
+  </section>
+  <footer class="footer">
+    <div class="footer-title">MOVEMENT IS MATERIAL.</div>
+    <div>This browser study preserves your files locally. Auto person masks are inferred on-device, but real geometric depth and temporal stabilization require the Python engine. Browser clip exports are limited to short, silent real-time recordings and depend on Safari/Chrome support. <a href="https://github.com/amydojo/film-lab" target="_blank" rel="noopener noreferrer">SOURCE / GITHUB ↗</a></div>
+  </footer>
+</main>
+<div id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

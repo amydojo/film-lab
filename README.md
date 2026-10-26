@@ -5,6 +5,10 @@ A shot-based, Python compositor for **text that passes behind a person, arm, or 
 
 **Status:** V0.1 working engineering foundation, synthetic integration demo + automated tests. No pretrained model weights, commercial rights, GPU infrastructure, or verified real-footage QC are bundled. This is not a claim of finished VFX on your source footage.
 
+## Mobile web companion (Vercel)
+
+`web/` is a portable, static, mobile-first **previsualization** layer. It demonstrates moving silhouettes and lets you import media on your phone, change type/depth, keyframe positions, and export a preview frame or project JSON. No source footage is uploaded; browser demo assets are procedural. It is not the Python compositor and does **not** perform model inference or final MP4 rendering. See `web/README.md`.
+
 ## Fastest first render (no GPU, no AI install)
 
 Requirements: Python 3.10+, pip; optional FFmpeg for MP4 export.
