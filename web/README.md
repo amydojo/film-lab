@@ -107,3 +107,21 @@ Potential limitations: model download failure, Safari memory limits,
 relative-depth polarity errors on challenging footage, inter-frame scale
 drift, edge halos, motion blur and inaccurate overlapping limbs. This
 release adds real image depth analysis, not cinematic-grade matte repair.
+
+
+## V0.7 — Live mobile editing dock
+
+The phone interface now behaves like an editor instead of a long webpage:
+- A live 9:16 composition is always visible in a fixed monitor at the top.
+- TUNE / TYPE / DEPTH / MOVE / OUTPUT tabs share the lower control dock.
+- Sliders act on the same in-memory state as before; no duplicated control
+  nodes or mirrored UI; moving the sliders previews instantly above.
+- The active lower panel scrolls internally; the monitor never scrolls away.
+- FOCUS enlarges the monitor for detailed inspection; tapping again restores it.
+- The preview compacts while using a text/number keyboard, and adapts to
+  mobile visual viewport resize (iOS Safari and Chrome Android).
+- Desktop uses the existing multi-column full inspector and keeps all groups visible.
+- Tab keyboard navigation supports left/right/Home/End.
+
+No inference, rendering, or patient privacy behavior changed. The previous
+spatial pipeline and exported file formats are unchanged.
