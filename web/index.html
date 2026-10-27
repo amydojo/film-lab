@@ -8,6 +8,7 @@
 <title>FILM / LAB — Pocket Studio</title>
 <link rel="stylesheet" href="./styles.css">
 <script type="module" src="./app.js"></script>
+<script type="module" src="./mobile-ui.js"></script>
 </head>
 <body>
 <header class="masthead">
@@ -23,14 +24,15 @@
     <p>Move the text. Change its depth. Watch it pass behind a silhouette. An interactive visual study — not another static overlay.</p>
     <div class="intro-rule">
       <span>01 / DESIGN THE DEPTH</span>
-      <span class="fraction">V 0.6 — REAL DEPTH</span>
+      <span class="fraction">V 0.7 — LIVE EDITOR</span>
     </div>
   </section>
 
   <section class="workspace" aria-label="Spatial typography editor">
     <div class="preview-area">
       <div class="panel-heading">
-        <span class="tiny-heading">COMPOSITION / LIVE</span>
+        <span class="tiny-heading">02 / LIVE MONITOR</span>
+        <button type="button" id="focusPreview" class="preview-focus-btn" aria-pressed="false" title="Expand video preview">↗ FOCUS</button>
         <div class="mode-tabs" role="group" aria-label="Preview mode">
           <button type="button" data-view="composite" class="active" aria-pressed="true">COMPOSITE</button>
           <button type="button" data-view="matte" aria-pressed="false">MATTE</button>
@@ -55,97 +57,128 @@
       </div>
       <div class="key-ticks" id="keyTicks" aria-label="Keyframe markers"></div>
       <div class="timeline-meta"><span>IN <b id="inTime">0.00s</b></span><span id="keyframeStatus">● 3 KEYFRAMES</span><span>OUT <b id="outTime">10.00s</b></span></div>
-      <div class="trim-actions">
-        <button type="button" id="markIn" title="Set export beginning to this frame">[ SET IN</button>
-        <button type="button" id="markOut" title="Set export end to this frame">SET OUT ]</button>
-        <button type="button" id="clearTrim" title="Use the whole clip">RESET RANGE</button>
-      </div>
     </div>
 
-    <section class="inspector" aria-label="Typography controls">
-      <div class="panel-heading inspector-heading"><span class="tiny-heading">DIRECTION / PARAMETERS</span><span class="inspector-number">02 — 05</span></div>
+    <section class="inspector" aria-label="Typography controls" id="inspector">
+      <div class="panel-heading inspector-heading">
+        <span class="tiny-heading">03 / EDITORIAL CONTROLS</span>
+        <span class="inspector-number">LIVE / ADJUST WHILE VIEWING</span>
+      </div>
       <div class="source-bar">
         <div><strong id="sourceName">THE REFERENCE SHOT</strong><small id="sourceDescription">Synthetic camera study / no footage uploaded</small></div>
         <label class="source-upload" for="sourceFile">+ SOURCE</label>
         <input id="sourceFile" class="visually-hidden" type="file" accept="video/*,image/*">
       </div>
-      <div class="parameter">
-        <div class="parameter-label"><label for="fit">SOURCE FRAME</label></div>
-        <select id="fit"><option value="cover">FILL / CROP</option><option value="contain">FIT / LETTERBOX</option></select>
-      </div>
-      <div class="parameter">
-        <div class="parameter-label"><label for="copy">TEXT / CONTENT</label><span>01</span></div>
-        <textarea id="copy" maxlength="80" rows="2" spellcheck="false">SPACE
+      <nav class="studio-dock-nav" id="dockTabs" role="tablist" aria-label="Editor controls" hidden>
+        <button type="button" role="tab" id="tab-tune" aria-controls="panel-tune" aria-selected="true" data-dock="tune"><span class="dock-number">01</span>TUNE</button>
+        <button type="button" role="tab" id="tab-type" aria-controls="panel-type" aria-selected="false" data-dock="type"><span class="dock-number">02</span>TYPE</button>
+        <button type="button" role="tab" id="tab-depth" aria-controls="panel-depth" aria-selected="false" data-dock="depth"><span class="dock-number">03</span>DEPTH</button>
+        <button type="button" role="tab" id="tab-motion" aria-controls="panel-motion" aria-selected="false" data-dock="motion"><span class="dock-number">04</span>MOVE</button>
+        <button type="button" role="tab" id="tab-export" aria-controls="panel-export" aria-selected="false" data-dock="export"><span class="dock-number">05</span>OUTPUT</button>
+      </nav>
+      <div class="studio-dock-scroll" id="dockScroll">
+        <div class="studio-tab-panel" id="panel-tune" role="tabpanel" aria-labelledby="tab-tune" data-panel="tune">
+          <div class="dock-section-intro"><span>LIVE ADJUSTMENTS</span><span>01 / 05</span></div>
+          <div class="parameter">
+            <div class="parameter-label"><label for="depth">TYPE Z-DEPTH</label><output id="depthOut" for="depth">0.45</output></div>
+            <input id="depth" type="range" min="0" max="1" step=".01" value=".45">
+            <div class="slider-notes"><span>BEHIND</span><span>IN FRONT</span></div>
+          </div>
+          <div class="parameter">
+            <div class="parameter-label"><label for="size">TYPE SCALE</label><output id="sizeOut" for="size">92</output></div>
+            <input id="size" type="range" min="30" max="176" step="1" value="92">
+          </div>
+          <div class="parameter">
+            <div class="parameter-label"><label for="opacity">OPACITY</label><output id="opacityOut" for="opacity">100%</output></div>
+            <input id="opacity" type="range" min="0" max="1" step=".01" value="1">
+          </div>
+          <div class="parameter">
+            <div class="parameter-label"><label for="occlusion">SPATIAL BEHAVIOR</label></div>
+            <select id="occlusion"><option value="depth">DEPTH-AWARE</option><option value="person">BEHIND SUBJECT</option><option value="none">FOREGROUND</option></select>
+          </div>
+        </div>
+        <div class="studio-tab-panel" id="panel-type" role="tabpanel" aria-labelledby="tab-type" data-panel="type">
+          <div class="dock-section-intro"><span>ART DIRECT THE TYPE</span><span>02 / 05</span></div>
+          <div class="parameter">
+            <div class="parameter-label"><label for="copy">WORDS / EDIT DIRECTLY</label><span>01</span></div>
+            <textarea id="copy" maxlength="80" rows="2" spellcheck="false">SPACE
 HAS MEMORY</textarea>
-      </div>
-      <div class="keyframe-editor">
-        <div class="parameter-label"><span>KEYFRAME / POSITION + MOTION</span><output id="keyReadout">FRAME 000</output></div>
-        <div class="keyframe-nav">
-          <button type="button" id="prevKey">← PREV</button><button type="button" id="nextKey">NEXT →</button>
-          <button type="button" id="removeKey">DELETE KEY</button>
+          </div>
+          <div class="duo-controls">
+            <div class="parameter"><div class="parameter-label"><label for="typeface">TYPEFACE</label></div>
+              <select id="typeface"><option value="editorial">EDITORIAL SERIF</option><option value="modern">MODERN GROT</option><option value="mono">MONOSPACE</option></select>
+            </div>
+            <div class="parameter"><div class="parameter-label"><label for="tint">INK</label></div>
+              <select id="tint"><option value="#efd9c4">BONE</option><option value="#cd8061">TERRACOTTA</option><option value="#faf6eb">PAPER</option><option value="#161310">ESPRESSO</option></select>
+            </div>
+          </div>
+          <div class="parameter">
+            <div class="parameter-label"><label for="fit">SOURCE FRAMING</label></div>
+            <select id="fit"><option value="cover">FILL / CROP</option><option value="contain">FIT / LETTERBOX</option></select>
+          </div>
         </div>
-        <div class="keyframe-grid">
-          <label>X <input id="keyX" type="number" min="0" max="1" step=".01" value=".5"></label>
-          <label>Y <input id="keyY" type="number" min="0" max="1" step=".01" value=".4"></label>
-          <label>SCALE <input id="keyScale" type="number" min=".05" max="6" step=".05" value="1"></label>
-          <label>ANGLE <input id="keyRotation" type="number" min="-360" max="360" step="1" value="0"></label>
+        <div class="studio-tab-panel" id="panel-depth" role="tabpanel" aria-labelledby="tab-depth" data-panel="depth">
+          <div class="dock-section-intro"><span>SEE INSIDE THE SCENE</span><span>03 / 05</span></div>
+          <div class="depth-panel">
+            <div class="parameter-label"><span>RELATIVE SCENE DEPTH</span><span>ON-DEVICE MODEL</span></div>
+            <div class="depth-actions">
+              <button type="button" id="depthAnalyze">◉ GENERATE DEPTH</button>
+              <button type="button" id="depthAuto" aria-pressed="false">TRACK DEPTH: OFF</button>
+            </div>
+            <output id="depthStatus" role="status" aria-live="polite">UPLOAD VIDEO → GENERATE DEPTH</output>
+            <p>Depth Anything V2 Small estimates relative depth; white is nearer. Processing happens on device.</p>
+          </div>
+          <div class="auto-mask-panel">
+            <button type="button" id="autoMask" class="auto-mask-button" aria-pressed="false">AUTO MASK: OFF</button>
+            <output id="maskStatus" role="status" aria-live="polite">UPLOAD VIDEO TO ENABLE</output>
+          </div>
+          <div class="import-row">
+            <label class="map-upload" for="matteFile">+ IMPORT ALPHA MATTE</label>
+            <label class="map-upload" for="depthFile">+ IMPORT DEPTH MAP</label>
+            <input id="matteFile" class="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp">
+            <input id="depthFile" class="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp">
+          </div>
+          <div class="note" id="sourceNotice" aria-live="polite">
+            <span class="note-symbol">↗</span>
+            <p>Import footage and tap Generate Depth for real relative scene depth. Your media stays in this browser.</p>
+          </div>
         </div>
-      </div>
-      <div class="parameter">
-        <div class="parameter-label"><label for="size">SCALE / TYPOGRAPHY</label><output id="sizeOut" for="size">92</output></div>
-        <input id="size" type="range" min="30" max="176" step="1" value="92">
-      </div>
-      <div class="parameter">
-        <div class="parameter-label"><label for="depth">TEXT Z-PLANE / NEARNESS</label><output id="depthOut" for="depth">0.45</output></div>
-        <input id="depth" type="range" min="0" max="1" step=".01" value=".45">
-        <div class="slider-notes"><span>BEHIND</span><span>IN FRONT</span></div>
-      </div>
-      <div class="parameter">
-        <div class="parameter-label"><label for="opacity">OPACITY</label><output id="opacityOut" for="opacity">100%</output></div>
-        <input id="opacity" type="range" min="0" max="1" step=".01" value="1">
-      </div>
-      <div class="duo-controls">
-        <div class="parameter"><div class="parameter-label"><label for="typeface">TYPEFACE</label></div>
-          <select id="typeface"><option value="editorial">EDITORIAL SERIF</option><option value="modern">MODERN GROT</option><option value="mono">MONOSPACE</option></select>
+        <div class="studio-tab-panel" id="panel-motion" role="tabpanel" aria-labelledby="tab-motion" data-panel="motion">
+          <div class="dock-section-intro"><span>ANIMATE YOUR COMPOSITION</span><span>04 / 05</span></div>
+          <div class="motion-quick-actions">
+            <button type="button" id="addKeyframe" class="secondary-btn">◇ SET KEYFRAME</button>
+            <span>DRAG THE VIDEO TO REPOSITION</span>
+          </div>
+          <div class="keyframe-editor">
+            <div class="parameter-label"><span>POSITION + MOTION</span><output id="keyReadout">FRAME 000</output></div>
+            <div class="keyframe-nav">
+              <button type="button" id="prevKey">← PREV</button><button type="button" id="nextKey">NEXT →</button>
+              <button type="button" id="removeKey">DELETE KEY</button>
+            </div>
+            <div class="keyframe-grid">
+              <label>X <input id="keyX" type="number" min="0" max="1" step=".01" value=".5"></label>
+              <label>Y <input id="keyY" type="number" min="0" max="1" step=".01" value=".4"></label>
+              <label>SCALE <input id="keyScale" type="number" min=".05" max="6" step=".05" value="1"></label>
+              <label>ANGLE <input id="keyRotation" type="number" min="-360" max="360" step="1" value="0"></label>
+            </div>
+          </div>
+          <div class="dock-section-intro motion-trim-heading"><span>EXPORT RANGE</span><span>IN / OUT</span></div>
+          <div class="trim-actions">
+            <button type="button" id="markIn" title="Set export beginning to this frame">[ SET IN</button>
+            <button type="button" id="markOut" title="Set export end to this frame">SET OUT ]</button>
+            <button type="button" id="clearTrim" title="Use the whole clip">RESET RANGE</button>
+          </div>
         </div>
-        <div class="parameter"><div class="parameter-label"><label for="tint">INK</label></div>
-          <select id="tint"><option value="#efd9c4">BONE</option><option value="#cd8061">TERRACOTTA</option><option value="#faf6eb">PAPER</option><option value="#161310">ESPRESSO</option></select>
+        <div class="studio-tab-panel" id="panel-export" role="tabpanel" aria-labelledby="tab-export" data-panel="export">
+          <div class="dock-section-intro"><span>MAKE THE SHOT YOURS</span><span>05 / 05</span></div>
+          <div class="inspector-actions">
+            <button type="button" id="exportPng" class="solid-btn">↓ EXPORT FRAME</button>
+            <button type="button" id="exportVideo" class="solid-btn clip-btn">↓ EXPORT CLIP</button>
+            <button type="button" id="exportFrames" class="solid-btn clip-btn">↓ FRAME PACK (.ZIP)</button>
+            <button type="button" id="reset" class="secondary-btn">↺ RESET SHOT</button>
+            <output id="exportProgress" class="export-progress" aria-live="polite"></output>
+          </div>
         </div>
-      </div>
-      <div class="parameter">
-        <div class="parameter-label"><label for="occlusion">SPATIAL BEHAVIOR</label></div>
-        <select id="occlusion"><option value="depth">DEPTH-AWARE</option><option value="person">BEHIND SUBJECT</option><option value="none">FOREGROUND</option></select>
-      </div>
-      <div class="depth-panel">
-        <div class="parameter-label"><span>RELATIVE SCENE DEPTH / EXPERIMENT B</span><span>ON-DEVICE MODEL</span></div>
-        <div class="depth-actions">
-          <button type="button" id="depthAnalyze">◉ GENERATE DEPTH</button>
-          <button type="button" id="depthAuto" aria-pressed="false">TRACK DEPTH: OFF</button>
-        </div>
-        <output id="depthStatus" role="status" aria-live="polite">UPLOAD VIDEO → GENERATE DEPTH</output>
-        <p>Depth Anything V2 Small estimates actual relative depth. White = nearer. Tracking is sampled, not full-frame DA3.</p>
-      </div>
-      <div class="auto-mask-panel">
-        <button type="button" id="autoMask" class="auto-mask-button" aria-pressed="false">AUTO MASK: OFF</button>
-        <output id="maskStatus" role="status" aria-live="polite">UPLOAD VIDEO TO ENABLE</output>
-      </div>
-      <div class="import-row">
-        <label class="map-upload" for="matteFile">+ IMPORT ALPHA MATTE</label>
-        <label class="map-upload" for="depthFile">+ IMPORT DEPTH MAP</label>
-        <input id="matteFile" class="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp">
-        <input id="depthFile" class="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp">
-      </div>
-      <div class="note" id="sourceNotice" aria-live="polite">
-        <span class="note-symbol">↗</span>
-        <p>Try the moving-arm demo, or import footage and tap GENERATE DEPTH for real relative scene depth. Your media stays in this browser. Person detection downloads a MediaPipe model (and may report usage metrics).</p>
-      </div>
-      <div class="inspector-actions">
-        <button type="button" id="addKeyframe" class="secondary-btn">◇ SET KEYFRAME</button>
-        <button type="button" id="reset" class="secondary-btn">↺ RESET</button>
-        <button type="button" id="exportPng" class="solid-btn">↓ EXPORT FRAME</button>
-        <button type="button" id="exportVideo" class="solid-btn clip-btn">↓ EXPORT CLIP</button>
-        <button type="button" id="exportFrames" class="solid-btn clip-btn">↓ FRAME PACK (.ZIP)</button>
-        <output id="exportProgress" class="export-progress" aria-live="polite"></output>
       </div>
     </section>
   </section>
