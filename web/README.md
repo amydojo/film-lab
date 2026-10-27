@@ -125,3 +125,32 @@ The phone interface now behaves like an editor instead of a long webpage:
 
 No inference, rendering, or patient privacy behavior changed. The previous
 spatial pipeline and exported file formats are unchanged.
+
+
+## V0.8 — Motion Composer (touch release = one key)
+
+This release corrects the old accidental keyframe flood: moving the pointer
+only renders a transient preview, and releasing a sufficiently long gesture
+commits exactly one position key at the current frame. Taps do not move text,
+and canceled touches do not save edits. Previous over-dense motion paths can
+be simplified intentionally using REFINE DENSE PATH (max 12 keys, original
+positions preserved at important turning points). Every motion mutation is
+undoable/redoable up to 50 steps; pressing Reset discards the undo stack.
+
+MOVE offers four named **2D** trajectory presets:
+- HOLD: stays fixed
+- DRIFT: subtle horizontal movement with scale variation
+- REVEAL: settles upward, then holds
+- ORBIT 2D: elliptical graphic motion, not scene-tracked 3D motion
+
+Global speed curves: GLIDE (cubic Bézier), SMOOTH, LINEAR, HOLD.
+The same interpolation is used for playback and baked PNG/JPEG exports.
+The editor exports the selected speed curve as optional editor metadata
+in the project JSON; legacy Python rendering may need to interpret this
+metadata separately and should not be assumed to match its own interpolation.
+
+Default ten-second demo keyframes are time-scaled when a shorter video is
+imported only if the editor still contains the untouched starter path.
+Already edited motion is preserved unchanged.
+
+This is motion composition, not camera tracking or a true 3D orbit.

@@ -1,10 +1,10 @@
 {
   "name": "film-lab-pocket-studio",
   "private": true,
-  "version": "0.7.0",
+  "version": "0.8.0",
   "type": "module",
   "scripts": {
     "build": "node build.mjs",
-    "test": "node --check app.js && node --check subject-segmentation.js && node --check depth-math.js && node --check depth-engine.js && node --check mobile-layout.js && node --check mobile-ui.js && node --test test/*.test.mjs && node build.mjs"
+    "test": "node --check app.js && node --check subject-segmentation.js && node --check depth-math.js && node --check depth-engine.js && node --check mobile-layout.js && node --check mobile-ui.js && node --check motion-composer.js && node --test test/*.test.mjs && node build.mjs"
   }
 }

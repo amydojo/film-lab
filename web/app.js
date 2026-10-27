@@ -6,6 +6,7 @@
 import {interpolate,putKeyframe,removeKeyframe,nearestKeyframe,clampTrim} from "./timeline.js";
 import {zipStore} from "./frame-pack.js";
 import {occlusionPixels,temporalDepth,depthMetrics} from "./depth-math.js";
+import {EASING,interpolateMotion,dragCommit,motionPreset,simplifyMotion,motionCurveSvgPath} from "./motion-composer.js";
 (() => {
   const W=540,H=960,FPS=24,MAX_WEB_SECONDS=60,VERSION="film-lab-pocket-v03";
   const $=id=>document.getElementById(id);
@@ -24,12 +25,56 @@ import {occlusionPixels,temporalDepth,depthMetrics} from "./depth-math.js";
     {frame:240,x:.52,y:.417,scale:1,rotation:0}
   ];
   const initial=()=>({text:"SPACE\nHAS MEMORY",font_size:92,depth:.45,opacity:1,
-    color:"#efd9c4",occlusion:"depth",fontChoice:"editorial",fit:"cover",frame:0,
+    color:"#efd9c4",occlusion:"depth",fontChoice:"editorial",fit:"cover",motionEase:"glide",frame:0,
     keyframes:defaultKeys()});
   let state=initial(),view="composite",playing=true,maxFrame=240,media=null,
       sourceType="demo",frameRequest=0,lastTick=0,toastTimer=null,
       maskAsset=null,depthAsset=null,overlayCacheKey="",pointerDown=false;
   let mediaObjectUrl=null;
+  const undoStack=[],redoStack=[],MAX_UNDO=50;
+  let dragPose=null,dragMoved=false,dragStart=null,dragPointerId=null;
+  function motionSnapshot(){
+    return JSON.stringify({keyframes:state.keyframes,motionEase:state.motionEase||"glide"});
+  }
+  function historyControls(){
+    $("undoMotion").disabled=!undoStack.length;
+    $("redoMotion").disabled=!redoStack.length;
+  }
+  function checkpoint(){
+    const snapshot=motionSnapshot();
+    if(undoStack[undoStack.length-1]!==snapshot){
+      undoStack.push(snapshot);
+      if(undoStack.length>MAX_UNDO)undoStack.shift();
+    }
+    redoStack.length=0;
+    historyControls();
+  }
+  function restoreMotion(serialized){
+    const saved=JSON.parse(serialized);
+    state.keyframes=saved.keyframes;
+    state.motionEase=EASING.includes(saved.motionEase)?saved.motionEase:"glide";
+    persist();syncMotionControls();draw();
+  }
+  function undoMotion(){
+    if(!undoStack.length)return;
+    redoStack.push(motionSnapshot());
+    restoreMotion(undoStack.pop());historyControls();
+  }
+  function redoMotion(){
+    if(!redoStack.length)return;
+    undoStack.push(motionSnapshot());
+    restoreMotion(redoStack.pop());historyControls();
+  }
+  function syncMotionControls(){
+    const ease=EASING.includes(state.motionEase)?state.motionEase:"glide";
+    state.motionEase=ease;
+    $("motionEase").value=ease;
+    $("motionEaseLabel").textContent=ease.toUpperCase();
+    $("motionEasePath").setAttribute("d",motionCurveSvgPath(ease,240,80));
+    $("motionEasePath").setAttribute("transform","translate(10 10)");
+    historyControls();
+  }
+
   let depthRunner=null,depthTrackingEnabled=false,depthLoading=false,
       depthGeneration=0,depthInFlight=null,depthPrevious=null,
       depthLastStarted=0,depthSerial=0,depthError="";
@@ -206,10 +251,11 @@ import {occlusionPixels,temporalDepth,depthMetrics} from "./depth-math.js";
     const t=$("toast");t.textContent=message;t.style.display="block";
     clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.style.display="none",3400);
   }
-  function valueAt(frame){return interpolate(state.keyframes,frame);}
+  function valueAt(frame){return interpolateMotion(state.keyframes,frame,state.motionEase||"glide");}
 
   function setKey(x,y){
-    state.keyframes=putKeyframe(state.keyframes,state.frame,{x:clamp(x,0,1),y:clamp(y,0,1)});
+    checkpoint();
+    state.keyframes=dragCommit(state.keyframes,state.frame,{x,y},state.motionEase||"glide");
     persist();updateKeyLabel();
   }
   function updateKeyLabel(){
@@ -402,7 +448,7 @@ import {occlusionPixels,temporalDepth,depthMetrics} from "./depth-math.js";
   }
   function typography(){
     resetCanvas(glyphCtx);
-    const pose=valueAt(state.frame),fontSize=state.font_size*(pose.scale||1);
+    const pose=dragPose||valueAt(state.frame),fontSize=state.font_size*(pose.scale||1);
     const lines=state.text.trim().split("\n").slice(0,4);
     const c=glyphCtx;
     c.save();c.translate(pose.x*W,pose.y*H);c.rotate((pose.rotation||0)*Math.PI/180);
@@ -590,6 +636,10 @@ import {occlusionPixels,temporalDepth,depthMetrics} from "./depth-math.js";
         v.onseeked=()=>{segLastMediaTime=-100;if(!exportingFrames)draw();};
         v.onloadeddata=()=>draw();
         media=v;sourceType="video";maxFrame=Math.max(1,Math.floor(Math.min(v.duration,MAX_WEB_SECONDS)*FPS));
+        // Default demo motion extends 10s; fit pristine starter keys to short clips.
+        if(JSON.stringify(state.keyframes)===JSON.stringify(defaultKeys())&&maxFrame!==240){
+          state.keyframes=defaultKeys().map(k=>({...k,frame:Math.round(k.frame*maxFrame/240)}));
+        }
         if(v.duration>MAX_WEB_SECONDS)toast("Showing the first 60 seconds of this clip.");
       }else throw Error("Choose an image or video file.");
       media.dataset.fileName=file.name;
@@ -740,7 +790,7 @@ import {occlusionPixels,temporalDepth,depthMetrics} from "./depth-math.js";
     setTimeout(()=>URL.revokeObjectURL(url),30000);
   }
   function projectPayload(){
-    return {fps:FPS,layers:[{text:state.text||"TYPE",font:null,font_size:state.font_size,
+    return {fps:FPS,editor:{motionEase:state.motionEase||"glide",format:"film-lab-v08"},layers:[{text:state.text||"TYPE",font:null,font_size:state.font_size,
       color:state.color,opacity:state.opacity,depth:state.depth,
       occlusion:state.occlusion,tracking:"none",
       keyframes:state.keyframes.map(k=>({...k,frame:Math.round(k.frame)}))
@@ -759,18 +809,43 @@ import {occlusionPixels,temporalDepth,depthMetrics} from "./depth-math.js";
       else toast("Frame export unavailable in this browser.");
     },"image/png");
   }
-  function moveByPointer(e){
+  function positionFromPointer(e){
     const rect=canvas.getBoundingClientRect();
-    setKey((e.clientX-rect.left)/rect.width,(e.clientY-rect.top)/rect.height);
-    draw();
+    return {x:clamp((e.clientX-rect.left)/rect.width,0,1),
+      y:clamp((e.clientY-rect.top)/rect.height,0,1)};
   }
   canvas.addEventListener("pointerdown",e=>{
-    if(view!=="composite")return;
-    pointerDown=true;canvas.setPointerCapture(e.pointerId);moveByPointer(e);
+    if(view!=="composite"||pointerDown)return;
+    pause();
+    pointerDown=true;dragMoved=false;dragPointerId=e.pointerId;
+    dragStart={x:e.clientX,y:e.clientY};
+    dragPose={...valueAt(state.frame)};
+    canvas.setPointerCapture(e.pointerId);
   });
-  canvas.addEventListener("pointermove",e=>{if(pointerDown)moveByPointer(e);});
-  canvas.addEventListener("pointerup",()=>{pointerDown=false;});
-  canvas.addEventListener("pointercancel",()=>{pointerDown=false;});
+  canvas.addEventListener("pointermove",e=>{
+    if(!pointerDown||e.pointerId!==dragPointerId)return;
+    if(Math.hypot(e.clientX-dragStart.x,e.clientY-dragStart.y)>5)dragMoved=true;
+    if(!dragMoved)return;
+    // Gesture is transient: only actual release writes the timeline.
+    dragPose={...dragPose,...positionFromPointer(e)};
+    draw();
+  });
+  canvas.addEventListener("pointerup",e=>{
+    if(!pointerDown||e.pointerId!==dragPointerId)return;
+    if(dragMoved){
+      dragPose={...dragPose,...positionFromPointer(e)};
+      const final={x:dragPose.x,y:dragPose.y};
+      dragPose=null;pointerDown=false;dragPointerId=null;
+      setKey(final.x,final.y);
+      toast("One key saved at frame "+state.frame+". Undo available.");
+    }else{dragPose=null;pointerDown=false;dragPointerId=null;}
+    draw();
+  });
+  canvas.addEventListener("pointercancel",e=>{
+    if(e.pointerId!==dragPointerId)return;
+    pointerDown=false;dragPointerId=null;dragPose=null;dragMoved=false;
+    draw();
+  });
   $("scrub").addEventListener("input",e=>{pause();setFrame(Number(e.target.value));});
   $("play").addEventListener("click",()=>{if(playing)pause();else start();});
   for(const name of ["size","depth","opacity"]){
@@ -796,6 +871,7 @@ import {occlusionPixels,temporalDepth,depthMetrics} from "./depth-math.js";
       const n=Number($(id).value);
       if(!Number.isFinite(n))return;
       const pose=valueAt(state.frame);
+      checkpoint();
       state.keyframes=putKeyframe(state.keyframes,state.frame,{
         ...pose,[field]:clamp(n,min,max)
       });
@@ -809,9 +885,40 @@ import {occlusionPixels,temporalDepth,depthMetrics} from "./depth-math.js";
     });
   }
   $("removeKey").addEventListener("click",()=>{
+    checkpoint();
     state.keyframes=removeKeyframe(state.keyframes,state.frame);
     persist();updateKeyLabel();draw();
   });
+  $("motionEase").addEventListener("change",e=>{
+    const next=e.target.value;
+    if(!EASING.includes(next)||next===state.motionEase)return;
+    checkpoint();state.motionEase=next;persist();syncMotionControls();draw();
+  });
+  document.querySelectorAll("button[data-motion-preset]").forEach(button=>{
+    button.addEventListener("click",()=>{
+      const name=button.dataset.motionPreset;
+      if(!["hold","drift","reveal","orbit"].includes(name))return;
+      pause();
+      checkpoint();
+      const pose=valueAt(state.frame);
+      state.keyframes=motionPreset(name,pose,maxFrame);
+      persist();updateKeyLabel();draw();
+      toast(name.toUpperCase()+" path created. Undo restores your edit.");
+    });
+  });
+  $("cleanMotion").addEventListener("click",()=>{
+    pause();
+    const clean=simplifyMotion(state.keyframes,{maxKeys:12,tolerance:.014});
+    if(clean.length===state.keyframes.length){
+      toast("This path is already intentional.");return;
+    }
+    const before=state.keyframes.length;
+    checkpoint();state.keyframes=clean;
+    persist();updateKeyLabel();draw();
+    toast("Refined "+before+" keys → "+clean.length+". Undo restores every key.");
+  });
+  $("undoMotion").addEventListener("click",undoMotion);
+  $("redoMotion").addEventListener("click",redoMotion);
   $("markIn").addEventListener("click",()=>{
     trimIn=Math.min(state.frame,trimOut);syncTrim();toast("IN at "+(trimIn/FPS).toFixed(2)+"s");
   });
@@ -840,6 +947,7 @@ import {occlusionPixels,temporalDepth,depthMetrics} from "./depth-math.js";
   });
   $("reset").addEventListener("click",()=>{
     pause();state=initial();sourceType="demo";media=null;
+    undoStack.length=0;redoStack.length=0;dragPose=null;historyControls();
     segGeneration++;autoEnabled=false;autoLoading=false;segmentStatus="idle";
     maskAsset=null;depthAsset=null;overlayCacheKey="";maxFrame=240;view="composite";
     resetDepthSource();
@@ -878,6 +986,6 @@ import {occlusionPixels,temporalDepth,depthMetrics} from "./depth-math.js";
     if(e.code==="Space"){e.preventDefault();if(playing)pause();else start();}
   });
   document.addEventListener("visibilitychange",()=>{if(document.hidden)pause();});
-  syncInputs();syncTrim();updateSourceUI();syncAutoButton();depthButtons();draw();document.fonts?.ready.then(()=>draw());
+  syncInputs();syncTrim();syncMotionControls();updateSourceUI();syncAutoButton();depthButtons();draw();document.fonts?.ready.then(()=>draw());
   frameRequest=requestAnimationFrame(animation);
 })();
