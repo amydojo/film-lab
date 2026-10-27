@@ -24,7 +24,7 @@
     <p>Move the text. Change its depth. Watch it pass behind a silhouette. An interactive visual study — not another static overlay.</p>
     <div class="intro-rule">
       <span>01 / DESIGN THE DEPTH</span>
-      <span class="fraction">V 0.7 — LIVE EDITOR</span>
+      <span class="fraction">V 0.8 — MOTION COMPOSER</span>
     </div>
   </section>
 
@@ -145,10 +145,35 @@ HAS MEMORY</textarea>
         </div>
         <div class="studio-tab-panel" id="panel-motion" role="tabpanel" aria-labelledby="tab-motion" data-panel="motion">
           <div class="dock-section-intro"><span>ANIMATE YOUR COMPOSITION</span><span>04 / 05</span></div>
-          <div class="motion-quick-actions">
-            <button type="button" id="addKeyframe" class="secondary-btn">◇ SET KEYFRAME</button>
-            <span>DRAG THE VIDEO TO REPOSITION</span>
+          <div class="motion-composer">
+            <div class="parameter-label"><span>ANIMATION FEEL</span><output id="motionEaseLabel">GLIDE</output></div>
+            <div class="motion-curve">
+              <svg viewBox="0 0 260 100" preserveAspectRatio="none" aria-label="Selected motion speed curve">
+                <path d="M10 10V90H250" fill="none" stroke="currentColor" stroke-opacity=".20" stroke-width="1"/>
+                <path id="motionEasePath" d="M10 90L250 10" fill="none" stroke="#E6A884" stroke-width="2.8" stroke-linecap="round"/>
+              </svg>
+              <span>START</span><span>ARRIVE</span>
+            </div>
+            <select id="motionEase" aria-label="Animation easing">
+              <option value="glide">GLIDE / CINEMATIC</option>
+              <option value="smooth">SMOOTH / BALANCED</option>
+              <option value="linear">LINEAR / CONSTANT</option>
+              <option value="hold">HOLD / SNAP AT END</option>
+            </select>
+            <div class="parameter-label motion-preset-title"><span>SHOT DIRECTION</span><span>ONE-TAP PATHS</span></div>
+            <div class="motion-presets" role="group" aria-label="Motion presets">
+              <button type="button" data-motion-preset="hold">HOLD</button>
+              <button type="button" data-motion-preset="drift">DRIFT</button>
+              <button type="button" data-motion-preset="reveal">REVEAL</button>
+              <button type="button" data-motion-preset="orbit">ORBIT 2D</button>
+            </div>
           </div>
+          <div class="motion-quick-actions">
+            <button type="button" id="addKeyframe" class="secondary-btn">◇ SET KEY</button>
+            <button type="button" id="undoMotion" class="secondary-btn" disabled>↶ UNDO</button>
+            <button type="button" id="redoMotion" class="secondary-btn" disabled>↷ REDO</button>
+          </div>
+          <div class="motion-guide">DRAG THE TYPE ON THE PREVIEW TO POSITION IT. ONE KEY IS SAVED WHEN YOU RELEASE.</div>
           <div class="keyframe-editor">
             <div class="parameter-label"><span>POSITION + MOTION</span><output id="keyReadout">FRAME 000</output></div>
             <div class="keyframe-nav">
@@ -161,6 +186,10 @@ HAS MEMORY</textarea>
               <label>SCALE <input id="keyScale" type="number" min=".05" max="6" step=".05" value="1"></label>
               <label>ANGLE <input id="keyRotation" type="number" min="-360" max="360" step="1" value="0"></label>
             </div>
+          </div>
+          <div class="motion-clean-row">
+            <button type="button" id="cleanMotion" class="secondary-btn">✧ REFINE DENSE PATH</button>
+            <span>Reduces accidental micro-keyframes. Undo restores the original.</span>
           </div>
           <div class="dock-section-intro motion-trim-heading"><span>EXPORT RANGE</span><span>IN / OUT</span></div>
           <div class="trim-actions">

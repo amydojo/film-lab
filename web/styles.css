@@ -173,3 +173,32 @@ input[type=range]{accent-color:var(--warm);height:20px;cursor:pointer}.timeline-
  .preview-area{padding-left:10px;padding-right:10px}
  .studio-dock-nav button{font-size:9px;letter-spacing:-.02em}
 }
+
+/* Film Lab V0.8 — Motion Composer */
+.motion-composer{padding:15px 0 8px;border-bottom:1px solid #534036}
+.motion-curve{position:relative;display:flex;justify-content:space-between;gap:12px;
+  margin:5px 0 14px;padding:12px 12px 4px;
+  border:1px solid #5d4739;background:linear-gradient(140deg,#2f241f,#1a1613)}
+.motion-curve svg{display:block;width:100%;height:92px}
+.motion-curve span{font:8px var(--mono);color:#a78e7d}
+.motion-curve{flex-wrap:wrap}
+.motion-curve svg{flex:0 0 100%}
+.motion-composer select{font-size:12px}
+.motion-preset-title{margin-top:18px}
+.motion-presets{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.motion-presets button{border:1px solid #70523f;background:#2e211a;color:#dec1ac;
+  min-height:43px;padding:6px 1px;font:10px var(--mono);white-space:nowrap}
+.motion-presets button:hover,.motion-presets button:focus-visible{background:#5a3625;color:#ffe0c4}
+.motion-quick-actions{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:6px;margin-top:16px}
+.motion-quick-actions button{min-height:40px}
+.motion-quick-actions button:disabled,.motion-clean-row button:disabled{opacity:.38;cursor:not-allowed}
+.motion-guide{font:9px/1.6 var(--mono);letter-spacing:.05em;color:#ad907c;margin:6px 0 7px}
+.motion-clean-row{display:flex;align-items:center;gap:11px;margin:15px 0}
+.motion-clean-row button{flex:0 0 auto;border:1px solid #77503c;background:#30231c;color:#e2b59b;
+  padding:12px 10px;font:9px var(--mono)}
+.motion-clean-row span{font:9px/1.5 var(--mono);color:#9e897b}
+@media(max-width:470px){
+  .motion-presets button{font-size:9px}
+  .motion-quick-actions{gap:5px}
+  .motion-quick-actions button{font-size:9px;padding:7px 4px}
+}
